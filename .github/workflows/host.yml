@@ -1,0 +1,41 @@
+name: Persistent Bot Host
+
+on:
+  schedule:
+    # Run every 30 minutes to ensure the bot restarts if it crashes or the 6-hour limit is hit
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    # Allows manual start from the Actions tab
+
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    
+    # Preventing multiple instances from running simultaneously
+    concurrency:
+      group: bot-hosting
+      cancel-in-progress: true
+
+    env:
+      TOKEN: ${{ secrets.TOKEN }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      PYTHON_SERVICE_URL: ${{ secrets.PYTHON_SERVICE_URL }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Start Bot
+        # Running with a 5.5 hour timeout to leave 30 mins for the next schedule to take over
+        # This is a workaround for the 6-hour hard limit
+        run: |
+          timeout 19800s npm start || echo "Bot session timed out or stopped. Restarting in next cycle."
