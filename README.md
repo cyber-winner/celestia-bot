@@ -107,3 +107,36 @@ For the bot to function, the following Privileged Gateway Intents must be enable
 
 ### Scaling and Maintenance
 The use of Mongoose and a modular folder structure allows Celestia to scale to hundreds of commands without performance degradation. The asynchronous nature of the execute functions ensures that the bot remains responsive to other gateway events while performing database transactions or API requests.
+
+---
+
+## Part 7: Deployment via GitHub Actions (Persistent Hosting)
+
+The repository includes a specialized workflow for running the bot within the GitHub Actions environment. This method is designed to maximize uptime while adhering to the platform's execution limits.
+
+### Step 1: Security and Secret Configuration
+
+To maintain operational security on a public repository, sensitive credentials must never be hardcoded into the workflow file. You must register them as GitHub Secrets:
+
+1. Navigate to your repository on GitHub.
+2. Go to Settings > Secrets and variables > Actions.
+3. Create a New repository secret for each of the following:
+    - TOKEN: Your Discord Bot Token.
+    - MONGODB_URI: The connection string for your MongoDB cluster.
+    - PYTHON_SERVICE_URL: The URL of your auxiliary Python service (default: http://localhost:8000).
+
+### Step 2: Manual Workflow Initiation
+
+The workflow is configured with a workflow_dispatch trigger, allowing you to start it at any time.
+
+1. Open the Actions tab in your repository.
+2. Select the "Persistent Bot Host" workflow from the sidebar.
+3. Click the "Run workflow" dropdown menu.
+4. Ensure the branch is set to main and click the green "Run workflow" button.
+
+### Step 3: Lifecycle and Maintenance
+
+The hosting engine is designed for semi-autonomy:
+- Heartbeat Cycle: Every 30 minutes, a cron schedule triggers a check. If no instance is running, or if the current instance is approaching its timeout, a new session is queued.
+- Concurrency Management: The system utilizes a bot-hosting concurrency group. This prevents multiple instances from logging into the same Discord client simultaneously, which would cause session flapping and API rate-limiting.
+- Execution Window: Each session is capped at 5.5 hours. This proactive shutdown allows for a clean transition before GitHub's 6-hour hard kill limit is reached.
