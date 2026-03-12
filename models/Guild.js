@@ -4,6 +4,7 @@ const guildSchema = new mongoose.Schema({
     guildId: { type: String, required: true, unique: true },
     prefix: { type: String, default: '!' },
     logChannel: { type: String, default: null },
+    modLogChannel: { type: String, default: null },
     aiLogChannel: { type: String, default: null },
     quarantineRoleId: { type: String, default: null },
     quarantineViewChannelId: { type: String, default: null },

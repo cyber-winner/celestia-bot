@@ -45,7 +45,7 @@ module.exports = {
 
         const selectedCategory = isInteraction ? interaction.options.getString('category') : (args?.[0]?.toLowerCase());
 
-        
+
         if (selectedCategory && CATEGORIES[selectedCategory]) {
             const meta = CATEGORIES[selectedCategory];
 
@@ -58,37 +58,35 @@ module.exports = {
 
             const cmds = client.commands.filter(cmd => cmd.category === selectedCategory);
 
-            let cmdList = '';
+            let cmdListOptions = [];
             cmds.forEach(cmd => {
-                const desc = cmd.data?.description || 'No description';
-                cmdList += `\`/${cmd.data.name}\` — ${desc}\n`;
+                const desc = cmd.data?.description || 'No description provided';
+                cmdListOptions.push(`**\` /${cmd.data.name} \`**\n> ${desc}`);
             });
+            const cmdList = cmdListOptions.join('\n\n');
 
             const container = new ContainerBuilder()
                 .setAccentColor(meta.color)
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(`## ${meta.emoji}  ${meta.name} Commands`)
+                .addSectionComponents(
+                    new SectionBuilder()
+                        .addTextDisplayComponents(
+                            new TextDisplayBuilder().setContent(`## ${meta.emoji}  ${meta.name} Module`)
+                        )
                 )
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
                 )
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(`*${meta.description}*`)
+                    new TextDisplayBuilder().setContent(`*${meta.description}*\n\n---\n\n${cmdList || '> *No commands available.*'}`)
                 )
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-                )
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(cmdList || '> *No commands available in this category.*')
-                )
-                .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
                 )
                 .addActionRowComponents(
                     new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('help_back')
-                            .setLabel('Back to Overview')
+                            .setLabel('Return to Modules')
                             .setStyle(ButtonStyle.Secondary)
                             .setEmoji('↩️')
                     )
@@ -97,34 +95,40 @@ module.exports = {
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
                 )
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(`-# ${cmds.size} command${cmds.size !== 1 ? 's' : ''} in this category  •  Use \`/help\` for all categories`)
+                    new TextDisplayBuilder().setContent(`-# Viewing ${cmds.size} command${cmds.size !== 1 ? 's' : ''} in the ${meta.name} module.`)
                 );
 
             return await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
-        
-        
+
+
         let categoryLines = '';
+        const activeCategories = [];
+
         for (const [key, meta] of Object.entries(CATEGORIES)) {
             if (meta.adminOnly && !member.permissions.has(PermissionFlagsBits.ManageMessages)) continue;
             if (meta.nsfwOnly && !channel.nsfw) continue;
             const count = client.commands.filter(c => c.category === key).size;
-            categoryLines += `${meta.emoji} **${meta.name}** — ${count} command${count !== 1 ? 's' : ''}\n`;
+
+            // Format nice block
+            categoryLines += `### ${meta.emoji}  ${meta.name}\n`;
+            categoryLines += `> ${meta.description}\n`;
+            categoryLines += `> └─ \`${count}\` available commands\n\n`;
+
+            activeCategories.push({ key, meta });
         }
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('help_category_select')
-            .setPlaceholder('📂  Browse a category...')
+            .setPlaceholder('Explore a Module...')
             .setMinValues(1)
             .setMaxValues(1);
 
-        for (const [key, meta] of Object.entries(CATEGORIES)) {
-            if (meta.adminOnly && !member.permissions.has(PermissionFlagsBits.ManageMessages)) continue;
-            if (meta.nsfwOnly && !channel.nsfw) continue;
+        for (const { key, meta } of activeCategories) {
             selectMenu.addOptions(
                 new StringSelectMenuOptionBuilder()
-                    .setLabel(`${meta.name} Commands`)
+                    .setLabel(`${meta.name} Module`)
                     .setDescription(meta.description)
                     .setValue(key)
                     .setEmoji(meta.emoji)
@@ -132,22 +136,22 @@ module.exports = {
         }
 
         const container = new ContainerBuilder()
-            .setAccentColor(0x5865f2)
+            .setAccentColor(0x2b2d31) // Discord's dark background color or slightly aesthetic
             .addSectionComponents(
                 new SectionBuilder()
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`## 📚  Celestia Help`)
+                        new TextDisplayBuilder().setContent(`## ✨  Celestia Command Center`)
                     )
                     .setThumbnailAccessory(
-                        new ThumbnailBuilder().setURL(client.user.displayAvatarURL({ size: 64 }))
+                        new ThumbnailBuilder().setURL(client.user.displayAvatarURL({ size: 128 }))
                     )
             )
             .addSeparatorComponents(
-                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    `Welcome to **Celestia**! Here's an overview of available command categories:\n\n${categoryLines}`
+                    `Welcome to the **Celestia** interactive help menu. Select a module from the dropdown below to explore specific features.\n\n` + categoryLines
                 )
             )
             .addSeparatorComponents(
@@ -160,7 +164,7 @@ module.exports = {
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
             )
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`-# 💡 Use \`/help <category>\` or the menu above  •  ${client.commands.size} total commands`)
+                new TextDisplayBuilder().setContent(`-# 💡 Tip: You can also use \`/help <category>\` to jump straight to a module.`)
             );
 
         return await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
