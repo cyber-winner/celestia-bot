@@ -33,36 +33,43 @@ module.exports = {
             const gif = res.data.results[0];
 
             const container = new ContainerBuilder()
-                .setAccentColor(0xff4444)
+                .setAccentColor(0xe74c3c)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## 💢  Slap!')
+                    new TextDisplayBuilder().setContent('# � Slap!')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
                             new TextDisplayBuilder().setContent(
-                                `🔴 **${user.displayName}** slapped **${target.displayName}**!\n\n` +
-                                `> *Ouch! That's gonna leave a mark!* 😤`
+                                `� **${user.displayName}** slapped **${target.displayName}**!\n\n` +
+                                `> *Ouch!* �`
                             )
                         )
                         .setThumbnailAccessory(
                             new ThumbnailBuilder().setURL(target.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addMediaGalleryComponents(
                     new MediaGalleryBuilder().addItems(
                         new MediaGalleryItemBuilder().setURL(gif.url)
                     )
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(`-# 🎬 Anime: *${gif.anime_name}*`)
                 );

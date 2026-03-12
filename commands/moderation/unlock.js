@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder } = require('discord.js');
 const { logModerationAction } = require('../../utils/modLogger');
 
 module.exports = {
@@ -24,19 +24,20 @@ module.exports = {
         const targetUser = interaction.options.getUser('user');
         const channel = interaction.channel;
         const guild = interaction.guild;
-
-        // Target ID is the given user, or the @everyone role to lock the whole channel
         const targetId = targetUser ? targetUser.id : guild.id;
 
         let overwritePayload = {};
         let actionStr = '';
+        let lockIcon = '';
 
         if (locktype === 'viewlock') {
-            overwritePayload = { ViewChannel: null }; // Reset to default
-            actionStr = targetUser ? `🔓 Unlocked viewing access for ${targetUser.tag}` : `🔓 Channel visibility restored for @everyone`;
+            overwritePayload = { ViewChannel: null };
+            lockIcon = '👁️';
+            actionStr = targetUser ? `Visibility restored for **${targetUser.tag}**` : `Visibility restored for **@everyone**`;
         } else if (locktype === 'msglock') {
-            overwritePayload = { SendMessages: null }; // Reset to default
-            actionStr = targetUser ? `🔓 Unlocked message sending for ${targetUser.tag}` : `🔓 Channel messaging restored for @everyone`;
+            overwritePayload = { SendMessages: null };
+            lockIcon = '💬';
+            actionStr = targetUser ? `Messaging restored for **${targetUser.tag}**` : `Messaging restored for **@everyone**`;
         }
 
         try {
@@ -48,17 +49,37 @@ module.exports = {
 
         const container = new ContainerBuilder()
             .setAccentColor(0x2ecc71)
+            
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`## 🔓  Channel Unlocked`)
+                new TextDisplayBuilder().setContent('# 🔓 Channel Unlocked')
             )
+            
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addSectionComponents(
                 new SectionBuilder()
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`**Status:** ${actionStr}`)
+                        new TextDisplayBuilder().setContent(
+                            `${lockIcon} **Type:** ${locktype === 'viewlock' ? 'View Lock' : 'Message Lock'}\n` +
+                            `**Status:** ${actionStr}\n` +
+                            `**Channel:** #${channel.name}`
+                        )
                     )
+                    .setThumbnailAccessory(
+                        new ThumbnailBuilder().setURL(guild.iconURL({ size: 64 }) || 'https://cdn.discordapp.com/embed/avatars/0.png')
+                    )
+            )
+            
+            .addSeparatorComponents(
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+            )
+            
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# ✅ Channel permissions have been restored`
+                )
             );
 
         return interaction.reply({

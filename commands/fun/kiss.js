@@ -8,10 +8,7 @@ const {
     SeparatorBuilder,
     SeparatorSpacingSize,
     SectionBuilder,
-    ThumbnailBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle
+    ThumbnailBuilder
 } = require('discord.js');
 const axios = require('axios');
 
@@ -28,7 +25,6 @@ module.exports = {
         const user = isInteraction ? interaction.user : interaction.author;
 
         if (!target) return interaction.reply({ content: '> ❌ Please mention a valid user to kiss!', flags: MessageFlags.Ephemeral });
-        if (target.id === user.id) return interaction.reply({ content: '> 🤔 You can\'t kiss yourself... or can you?', flags: MessageFlags.Ephemeral });
 
         await interaction.deferReply();
 
@@ -37,36 +33,43 @@ module.exports = {
             const gif = res.data.results[0];
 
             const container = new ContainerBuilder()
-                .setAccentColor(0xff6b8a)
+                .setAccentColor(0xff69b4)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## 💋  Kiss!')
+                    new TextDisplayBuilder().setContent('# 💋 Kiss!')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
                             new TextDisplayBuilder().setContent(
-                                `💗 **${user.displayName}** just kissed **${target.displayName}**!\n\n` +
-                                `> *Sending love your way~* ✨`
+                                `💕 **${user.displayName}** kissed **${target.displayName}**!\n\n` +
+                                `> *Mwah~!* 💗`
                             )
                         )
                         .setThumbnailAccessory(
                             new ThumbnailBuilder().setURL(target.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addMediaGalleryComponents(
                     new MediaGalleryBuilder().addItems(
                         new MediaGalleryItemBuilder().setURL(gif.url)
                     )
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(`-# 🎬 Anime: *${gif.anime_name}*`)
                 );
@@ -77,7 +80,7 @@ module.exports = {
             });
         } catch (err) {
             console.error(err);
-            interaction.editReply({ content: '> ❌ Could not fetch a kiss gif. Try again!', flags: MessageFlags.Ephemeral });
+            interaction.editReply({ content: '> ❌ Could not fetch a kiss gif. Try again!' });
         }
     },
 };

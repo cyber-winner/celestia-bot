@@ -16,7 +16,6 @@ module.exports = {
         .setDescription('Check the bot\'s latency and status.'),
     aliases: ['ping'],
     async execute(interaction, client) {
-        
         await interaction.deferReply();
 
         const start = Date.now();
@@ -31,12 +30,15 @@ module.exports = {
 
         const container = new ContainerBuilder()
             .setAccentColor(0x5865f2)
+            
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('## 🏓  Pong!')
+                new TextDisplayBuilder().setContent('# 🏓 Pong!')
             )
+            
             .addSeparatorComponents(
-                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addSectionComponents(
                 new SectionBuilder()
                     .addTextDisplayComponents(
@@ -49,18 +51,22 @@ module.exports = {
                         new ThumbnailBuilder().setURL(client.user.displayAvatarURL({ size: 64 }))
                     )
             )
+            
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `📡 **Status:** Online\n` +
                     `🕐 **Uptime:** <t:${Math.floor((Date.now() - client.uptime) / 1000)}:R>`
                 )
             )
+            
             .addSeparatorComponents(
-                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(`-# 🤖 ${client.user.username}  •  discord.js v14`)
             );

@@ -40,7 +40,6 @@ module.exports = {
     async execute(interaction, client, args) {
         const isInteraction = interaction.isChatInputCommand?.() || false;
 
-        // Quarantine usually requires admin or specialized mod perms, keeping ManageRoles is fine as default
         if (isInteraction && !interaction.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
             return interaction.reply({ content: '> ❌ You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
         }
@@ -65,13 +64,11 @@ module.exports = {
 
                 settings.quarantineRoleId = role.id;
                 await settings.save();
-                // Set to bottom-ish and wipe basic perms
                 await role.setPermissions(0n);
                 if (role.position > 1) {
                     try { await role.setPosition(1); } catch (e) { }
                 }
 
-                // Background channel updates
                 const viewChannelId = settings.quarantineViewChannelId;
                 guild.channels.cache.forEach(async (ch) => {
                     if (viewChannelId && ch.id === viewChannelId) {
@@ -94,18 +91,35 @@ module.exports = {
 
                 const container = new ContainerBuilder()
                     .setAccentColor(0xf1c40f)
+                    
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent('## ⚙️  Quarantine Role Set')
+                        new TextDisplayBuilder().setContent('# ⚙️ Quarantine Role Set')
                     )
+                    
                     .addSeparatorComponents(
                         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                     )
+                    
+                    .addSectionComponents(
+                        new SectionBuilder()
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(
+                                    `**Role:** ${role} \`(${role.id})\`\n` +
+                                    `**Permissions Cleared:** ✅ All permissions removed from role.\n\n` +
+                                    `-# Members assigned this role will not be able to see any channels.`
+                                )
+                            )
+                            .setThumbnailAccessory(
+                                new ThumbnailBuilder().setURL(guild.iconURL({ size: 64 }) || 'https://cdn.discordapp.com/embed/avatars/0.png')
+                            )
+                    )
+                    
+                    .addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+                    )
+                    
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(
-                            `**Role:** ${role} \`(${role.id})\`\n` +
-                            `**Permissions Cleared:** ✅ All permissions removed from role.\n\n` +
-                            `-# Members assigned this role will not be able to see any channels.`
-                        )
+                        new TextDisplayBuilder().setContent(`-# ✅ Configuration saved  •  Channel overrides applied`)
                     );
 
                 return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -118,103 +132,107 @@ module.exports = {
                     return interaction.reply({ content: '> ❌ Quarantine role has not been set. Use `/quarantine setrole` first.', flags: MessageFlags.Ephemeral });
                 }
 
-                // Temporary state for the interactive menu
                 const permissionState = {
-                    ViewChannel: { label: 'View Channel', value: true },
-                    SendMessages: { label: 'Send Messages', value: false },
-                    ReadMessageHistory: { label: 'Read Message History', value: true },
-                    AddReactions: { label: 'Add Reactions', value: false },
-                    AttachFiles: { label: 'Attach Files', value: false },
-                    EmbedLinks: { label: 'Embed Links', value: false },
-                    UseExternalEmojis: { label: 'Use External Emojis', value: false }
+                    ViewChannel: { label: 'View Channel', desc: 'Allow quarantined users to see this channel', emoji: '👁️', value: true },
+                    SendMessages: { label: 'Send Messages', desc: 'Allow quarantined users to send messages', emoji: '💬', value: false },
+                    ReadMessageHistory: { label: 'Read History', desc: 'Allow quarantined users to read past messages', emoji: '📜', value: true },
+                    AddReactions: { label: 'Add Reactions', desc: 'Allow quarantined users to add reactions', emoji: '😀', value: false },
+                    AttachFiles: { label: 'Attach Files', desc: 'Allow quarantined users to attach files', emoji: '📎', value: false },
+                    EmbedLinks: { label: 'Embed Links', desc: 'Allow quarantined users to embed links', emoji: '🔗', value: false },
+                    UseExternalEmojis: { label: 'External Emojis', desc: 'Allow quarantined users to use external emojis', emoji: '🎭', value: false }
                 };
 
                 const permKeys = Object.keys(permissionState);
-                let currentPage = 0;
-                const itemsPerPage = 3;
-                const maxPages = Math.ceil(permKeys.length / itemsPerPage);
 
-                const getPageContainer = (page) => {
-                    const start = page * itemsPerPage;
-                    const end = start + itemsPerPage;
-                    const pageKeys = permKeys.slice(start, end);
-
+                const buildContainer = () => {
                     const container = new ContainerBuilder()
                         .setAccentColor(0xf1c40f)
+                        
                         .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(`## ⚙️  Configure Quarantine Channel: ${channel.name}`)
+                            new TextDisplayBuilder().setContent(`# ⚙️ Configure Quarantine Channel`)
                         )
+                        
                         .addSeparatorComponents(
                             new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                         )
-                        .addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(
-                                `Toggle permissions for the quarantine role in this channel.\n` +
-                                `-# Page ${page + 1}/${maxPages}`
-                            )
+                        
+                        .addSectionComponents(
+                            new SectionBuilder()
+                                .addTextDisplayComponents(
+                                    new TextDisplayBuilder().setContent(
+                                        `**Channel:** #${channel.name}\n` +
+                                        `Toggle permissions for the quarantine role below.`
+                                    )
+                                )
+                                .setThumbnailAccessory(
+                                    new ThumbnailBuilder().setURL(guild.iconURL({ size: 64 }) || 'https://cdn.discordapp.com/embed/avatars/0.png')
+                                )
+                        )
+                        
+                        .addSeparatorComponents(
+                            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                         );
+
+                    
+                    for (const key of permKeys) {
+                        const perm = permissionState[key];
+                        container.addSectionComponents(
+                            new SectionBuilder()
+                                .addTextDisplayComponents(
+                                    new TextDisplayBuilder().setContent(
+                                        `${perm.emoji} **${perm.label}**\n-# ${perm.desc}`
+                                    )
+                                )
+                                .setButtonAccessory(
+                                    new ButtonBuilder()
+                                        .setCustomId(`toggle_${key}`)
+                                        .setLabel(perm.value ? 'True' : 'False')
+                                        .setStyle(perm.value ? ButtonStyle.Success : ButtonStyle.Danger)
+                                )
+                        );
+                    }
+
+                    
+                    container.addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+                    );
+
+                    
+                    container.addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(`-# 💾 Click Save Config when done`)
+                    );
+
+                    
+                    container.addActionRowComponents(
+                        new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('save_perms')
+                                .setLabel('Save Config')
+                                .setStyle(ButtonStyle.Success)
+                                .setEmoji('💾')
+                        )
+                    );
 
                     return container;
                 };
 
-                const getButtonsRow = (page) => {
-                    const start = page * itemsPerPage;
-                    const end = start + itemsPerPage;
-                    const pageKeys = permKeys.slice(start, end);
-
-                    const row = new ActionRowBuilder();
-
-                    pageKeys.forEach(key => {
-                        const state = permissionState[key].value;
-                        row.addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`toggle_${key}`)
-                                .setLabel(`${permissionState[key].label}: ${state ? '✅ Allow' : '❌ Deny'}`)
-                                .setStyle(state ? ButtonStyle.Success : ButtonStyle.Danger)
-                        );
-                    });
-
-                    return row;
-                };
-
-                const getNavigationRow = (page) => {
-                    return new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId('prev_page')
-                            .setLabel('Previous')
-                            .setStyle(ButtonStyle.Primary)
-                            .setDisabled(page === 0),
-                        new ButtonBuilder()
-                            .setCustomId('next_page')
-                            .setLabel('Next')
-                            .setStyle(ButtonStyle.Primary)
-                            .setDisabled(page === maxPages - 1),
-                        new ButtonBuilder()
-                            .setCustomId('save_perms')
-                            .setLabel('💾 Save Configurations')
-                            .setStyle(ButtonStyle.Success)
-                    );
-                };
-
                 const response = await interaction.reply({
-                    components: [getPageContainer(currentPage), getButtonsRow(currentPage), getNavigationRow(currentPage)],
+                    components: [buildContainer()],
                     flags: MessageFlags.IsComponentsV2,
-                    fetchReply: true
+                    withResponse: true
                 });
 
-                const collector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 120000 });
+                const message = response.resource?.message;
+                if (!message) return;
+
+                const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: 120000 });
 
                 collector.on('collect', async i => {
                     if (i.user.id !== interaction.user.id) {
-                        return i.reply({ content: 'These buttons are not for you!', ephemeral: true });
+                        return i.reply({ content: '> ❌ These buttons are not for you!', flags: MessageFlags.Ephemeral }).catch(() => { });
                     }
 
-                    if (i.customId === 'prev_page') {
-                        currentPage--;
-                    } else if (i.customId === 'next_page') {
-                        currentPage++;
-                    } else if (i.customId === 'save_perms') {
-                        // Apply saves
+                    if (i.customId === 'save_perms') {
                         settings.quarantineViewChannelId = channel.id;
                         await settings.save();
 
@@ -229,25 +247,41 @@ module.exports = {
                             console.error('Failed setting channel overwrites for quarantine', e);
                         }
 
+                        
                         const finalContainer = new ContainerBuilder()
                             .setAccentColor(0x2ecc71)
                             .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent('## ✅  Quarantine Channel Configured')
+                                new TextDisplayBuilder().setContent('# ✅ Quarantine Channel Configured')
+                            )
+                            .addSeparatorComponents(
+                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+                            )
+                            .addSectionComponents(
+                                new SectionBuilder()
+                                    .addTextDisplayComponents(
+                                        new TextDisplayBuilder().setContent(
+                                            `**Channel:** ${channel}\n\n` +
+                                            permKeys.map(k => {
+                                                const p = permissionState[k];
+                                                return `${p.emoji} **${p.label}:** ${p.value ? '✅ Allowed' : '❌ Denied'}`;
+                                            }).join('\n')
+                                        )
+                                    )
+                                    .setThumbnailAccessory(
+                                        new ThumbnailBuilder().setURL(guild.iconURL({ size: 64 }) || 'https://cdn.discordapp.com/embed/avatars/0.png')
+                                    )
                             )
                             .addSeparatorComponents(
                                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                             )
                             .addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(
-                                    `**Channel:** ${channel}\n\n` +
-                                    `-# The custom permissions have been securely applied to the quarantine role.`
-                                )
+                                new TextDisplayBuilder().setContent(`-# ✅ Configuration saved successfully`)
                             );
 
                         await i.update({
                             components: [finalContainer],
                             flags: MessageFlags.IsComponentsV2
-                        });
+                        }).catch(() => { });
                         return collector.stop('saved');
                     } else if (i.customId.startsWith('toggle_')) {
                         const key = i.customId.replace('toggle_', '');
@@ -256,24 +290,33 @@ module.exports = {
                         }
                     }
 
-                    // Update UI
                     await i.update({
-                        components: [getPageContainer(currentPage), getButtonsRow(currentPage), getNavigationRow(currentPage)],
+                        components: [buildContainer()],
                         flags: MessageFlags.IsComponentsV2
-                    });
+                    }).catch(() => { });
                 });
 
                 collector.on('end', (collected, reason) => {
                     if (reason !== 'saved') {
-                        // Time out display
+                        const timeoutContainer = new ContainerBuilder()
+                            .setAccentColor(0x95a5a6)
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent('# ⏳ Configuration Timed Out')
+                            )
+                            .addSeparatorComponents(
+                                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+                            )
+                            .addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(`-# Run \`/quarantine setchannel\` again to configure.`)
+                            );
                         interaction.editReply({
-                            components: [new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent('⏳ Configuration timed out.'))],
+                            components: [timeoutContainer],
                             flags: MessageFlags.IsComponentsV2
                         }).catch(() => { });
                     }
                 });
 
-                return; // Interaction replied internally
+                return;
             }
 
             if (sub === 'add') {
@@ -338,32 +381,39 @@ module.exports = {
 
                 const container = new ContainerBuilder()
                     .setAccentColor(0xf1c40f)
+                    
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent('## ⛓️  User Quarantined')
+                        new TextDisplayBuilder().setContent('# ⛓️ User Quarantined')
                     )
+                    
                     .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                     )
+                    
                     .addSectionComponents(
                         new SectionBuilder()
                             .addTextDisplayComponents(
                                 new TextDisplayBuilder().setContent(
                                     `**User:** ${target.user.tag} \`(${target.id})\`\n` +
                                     `**Moderator:** ${interaction.user.tag}\n` +
-                                    `**Reason:** ${reason}\n\n` +
-                                    `📅 **Since:** <t:${Math.floor(Date.now() / 1000)}:R>` +
-                                    (deleteDays > 0 ? `\n🗑️ **Messages Deleted:** ~${messagesDeleted} (in current channel)` : '')
+                                    `**Reason:** ${reason}`
                                 )
                             )
                             .setThumbnailAccessory(
                                 new ThumbnailBuilder().setURL(target.user.displayAvatarURL({ size: 64 }))
                             )
                     )
+                    
                     .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                     )
+                    
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`-# 🔒 User has been restricted. Use \`/quarantine remove\` to lift.`)
+                        new TextDisplayBuilder().setContent(
+                            `-# 📅 Since <t:${Math.floor(Date.now() / 1000)}:R>` +
+                            (deleteDays > 0 ? `  •  🗑️ ~${messagesDeleted} messages deleted` : '') +
+                            `  •  Use \`/quarantine remove\` to lift`
+                        )
                     );
 
                 return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
@@ -405,7 +455,7 @@ module.exports = {
                     guild,
                     user: target.user,
                     moderator,
-                    action: 'UNBAN', // Or SANITIZE/UNQUARANTINE, using UNBAN for generic lifts per your schema enums, wait, schema has SANITIZE
+                    action: 'UNBAN',
                     reason: 'Quarantine Lifted',
                     color: 0x2ecc71,
                     emoji: '✅'
@@ -413,30 +463,36 @@ module.exports = {
 
                 const container = new ContainerBuilder()
                     .setAccentColor(0x2ecc71)
+                    
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent('## ✅  Quarantine Lifted')
+                        new TextDisplayBuilder().setContent('# ✅ Quarantine Lifted')
                     )
+                    
                     .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                     )
+                    
                     .addSectionComponents(
                         new SectionBuilder()
                             .addTextDisplayComponents(
                                 new TextDisplayBuilder().setContent(
                                     `**User:** ${target.user.tag} \`(${target.id})\`\n` +
-                                    `**Lifted by:** ${interaction.user.tag}\n` +
-                                    `📅 **Time:** <t:${Math.floor(Date.now() / 1000)}:R>`
+                                    `**Lifted by:** ${interaction.user.tag}`
                                 )
                             )
                             .setThumbnailAccessory(
                                 new ThumbnailBuilder().setURL(target.user.displayAvatarURL({ size: 64 }))
                             )
                     )
+                    
                     .addSeparatorComponents(
-                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                     )
+                    
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`-# 🔓 User can now access the server normally.`)
+                        new TextDisplayBuilder().setContent(
+                            `-# 📅 <t:${Math.floor(Date.now() / 1000)}:F>  •  🔓 User can now access the server normally`
+                        )
                     );
 
                 return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });

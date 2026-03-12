@@ -6,6 +6,7 @@ const {
     MediaGalleryBuilder,
     MediaGalleryItemBuilder,
     SeparatorBuilder,
+    SectionBuilder,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -49,26 +50,32 @@ WAIFUPICS_CATEGORIES.forEach(c => CATEGORY_SOURCE_MAP[c.value] = 'waifupics');
 
 module.exports = {
     category: 'nsfw',
-    data: new SlashCommandBuilder()
-        .setName('hentai')
-        .setDescription('🔞 Fetch hentai content (images & videos)')
-        .addSubcommand(sub =>
-            sub.setName('image')
-                .setDescription('Get random hentai images')
-                .addStringOption(opt =>
-                    opt.setName('category')
-                        .setDescription('Image category')
-                        .addChoices(...ALL_IMAGE_CHOICES)
-                )
-        )
-        .addSubcommand(sub =>
+    data: (() => {
+        const builder = new SlashCommandBuilder()
+            .setName('hentai')
+            .setDescription('🔞 Fetch hentai content (images & videos)');
+
+        
+        for (const cat of ALL_IMAGE_CHOICES) {
+            const subName = cat.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+            builder.addSubcommand(sub =>
+                sub.setName(subName)
+                    .setDescription(`${cat.name} images`)
+            );
+        }
+
+        
+        builder.addSubcommand(sub =>
             sub.setName('video')
                 .setDescription('Browse hentai videos from Hanime')
                 .addStringOption(opt =>
                     opt.setName('search')
                         .setDescription('Search query (e.g. "maid", "school")')
                 )
-        ),
+        );
+
+        return builder;
+    })(),
 
     async execute(interaction) {
         if (!interaction.channel.nsfw) {
@@ -82,27 +89,28 @@ module.exports = {
             await interaction.deferReply();
             const subcommand = interaction.options.getSubcommand();
 
-            if (subcommand === 'image') {
-                return this.handleImage(interaction);
-            } else if (subcommand === 'video') {
+            if (subcommand === 'video') {
                 return this.handleVideo(interaction);
+            } else {
+                
+                return this.handleImage(interaction, false, subcommand);
             }
         }
     },
 
-    
 
-    async handleImage(interaction, isReload = false) {
+
+    async handleImage(interaction, isReload = false, subcommandCategory = null) {
         let category = 'hentai';
 
         if (isReload) {
             const parts = interaction.customId.split(':');
             category = decodeURIComponent(parts[1] || 'hentai');
-        } else {
-            category = interaction.options.getString('category') || 'hentai';
+        } else if (subcommandCategory) {
+            category = subcommandCategory;
         }
 
-        
+
         const source = CATEGORY_SOURCE_MAP[category] || 'nekobot';
         const result = await nsfw.getHentaiImage(source, category);
 
@@ -121,20 +129,43 @@ module.exports = {
 
         const container = new ContainerBuilder()
             .setAccentColor(0xff69b4)
+            
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`## 🔞 Hentai Image`)
+                new TextDisplayBuilder().setContent(`# 🔞 Hentai Image`)
             )
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `🎨 **Source:** ${sourceName}\n` +
-                    `🏷️ **Category:** ${categoryLabel}`
-                )
-            )
+            
             .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+            
+            .addSectionComponents(
+                new SectionBuilder()
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                            `🎨 **Source:** ${sourceName}\n` +
+                            `🏷️ **Category:** ${categoryLabel}\n\n` +
+                            `-# Click the image to view full size`
+                        )
+                    )
+                    .setButtonAccessory(
+                        new ButtonBuilder()
+                            .setLabel('Another One')
+                            .setStyle(ButtonStyle.Success)
+                            .setCustomId(`hentai_img:${encodeURIComponent(category)}`)
+                            .setEmoji('🔁')
+                    )
+            )
+            
+            .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+            
             .addMediaGalleryComponents(
                 new MediaGalleryBuilder().addItems(
                     new MediaGalleryItemBuilder().setURL(imageUrl)
                 )
+            )
+            
+            .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+            
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`-# 🔞 Powered by ${sourceName}`)
             )
             .addActionRowComponents(
                 new ActionRowBuilder().addComponents(
@@ -142,16 +173,8 @@ module.exports = {
                         .setLabel('Open in Browser')
                         .setStyle(ButtonStyle.Link)
                         .setURL(imageUrl)
-                        .setEmoji('🔗'),
-                    new ButtonBuilder()
-                        .setLabel('Another One')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setCustomId(`hentai_img:${encodeURIComponent(category)}`)
-                        .setEmoji('🔁')
+                        .setEmoji('🔗')
                 )
-            )
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`-# 🔞 Powered by ${sourceName}`)
             );
 
         return interaction.editReply({
@@ -160,7 +183,7 @@ module.exports = {
         });
     },
 
-    
+
 
     async handleVideo(interaction, isReload = false) {
         let query = '';
@@ -211,7 +234,7 @@ module.exports = {
             });
         } catch (err) {
             console.error('[Hentai Video] Attachment failed, falling back to URL:', err.message);
-            
+
             return interaction.editReply({
                 content: `🔞 **${title}**\n${videoUrl}`,
                 components: [actionRow]

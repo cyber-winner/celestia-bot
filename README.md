@@ -1,142 +1,181 @@
-# Celestia Bot: Comprehensive Technical Manual and Architectural Specification
+# ✨ Celestia: The Ultimate Hyper-Detailed Technical Manual & Architectural Specification
 
-## Introduction and Core Philosophy
-
-Celestia is designed as a modular, event-driven Discord application that prioritizes separation of concerns and clear data ownership. The primary goal of the architecture is to allow individual components (commands, events, models) to function independently while communicating through a centralized state managed by MongoDB. This manual provides a deep-dive into every module, explaining the underlying code logic, the flow of data, and the intentionality behind specific implementation details.
-
----
-
-## Part 1: Bootstrapping and Global Infrastructure
-
-### The Orchestrator: index.js
-
-The initialization process is strictly sequential to ensure that dependencies are resolved before the bot attempts to interact with the Discord gateway.
-
-1. Environment Injection: The first line invokes the dotenv library, which parses the .env file. This is critical because the subsequent connection to MongoDB and the login to Discord require immediate access to process.env.TOKEN and process.env.MONGODB_URI.
-2. Client Configuration: The Discord.js Client is instantiated with a specific set of GatewayIntents. These intents act as a filter for the types of events the bot will receive from Discord. By enabling MessageContent, ServerMembers, and Presence intents, the bot opts into high-data streams necessary for moderation and real-time status tracking.
-3. Database Handshake: Mongoose is used to connect to the MongoDB instance. The connection is initiated asynchronously, and the bot logs the status to the console. This connection is globally shared across all models.
-4. Handler Execution: The bot delegates the loading of logic to commandHandler.js and eventHandler.js. These are passed the client instance to allow them to attach collections and listeners.
-
-### Command Registration: handlers/commandHandler.js
-
-This module is responsible for the transition from raw JavaScript files to functional Discord interactions.
-
-- Logic Flow: It uses a synchronous file system scan (fs.readdirSync) to find all directories within the commands folder. It then iterates through each file, requiring it and checking for the mandatory data and execute properties.
-- Dual Registry: Every command is stored in a client.commands Collection. If a command defines an array of aliases, the handler maps each alias to the same command object in the collection, facilitating legacy prefix-based lookups without duplicating logic.
-- REST Integration: Once the client is authenticated (ClientReady), the handler aggregates the data property of every slash command, converts them to JSON, and performs a bulk "PUT" request to the Discord API. This ensures that the command UI in the Discord client is updated globally for all servers.
-
-### Event Dispatching: handlers/eventHandler.js
-
-The event handler abstracts the gateway listeners away from the entry point. It identifies .js files in the events folder and registers them using client.on() or client.once(). By passing the client instance to the execute function of each event, it allows events to trigger other bot actions, such as fetching users or modifying guild settings.
+**Version:** 2.0.0  
+**Concept:** Premium Discord Engineering & State-of-the-Art UX Demonstration  
+**License:** Open Source (Educational)
 
 ---
 
-## Part 2: Data Persistence Layer (Models)
+## 📖 Introduction: The Celestia Philosophy
 
-The persistence layer is managed by three primary Mongoose schemas, each serving a distinct role in the bot's ecosystem.
+**Celestia** is an advanced, modular, event-driven Discord application that sets a new industry standard for premium bot design and robust backend engineering. Unlike standard bots, Celestia is built with a deep emphasis on **separation of concerns**, **data ownership**, and **Premium UX (Discord Components V2)**.
 
-### Server Configuration: models/Guild.js
-This model tracks the "personality" of each server. Key fields include:
-- prefix: Defaults to '!', allowing per-server customization for legacy commands.
-- quarantineRoleId: Stores the snowflake ID of the role used by the isolation system.
-- automod: A nested object containing a toggle and a sensitivity threshold (aiThreshold), used for future AI-driven filtering.
-
-### Action History: models/ModLog.js
-A document-based approach to accountability. It records every destructive action (BAN, KICK, TIMEOUT) along with metadata like the moderator's ID and an optional "proof" string (usually a link to a message or image).
-
-### Transient Data: models/Snipe.js
-The snipe system handles high-velocity data. Each record stores the content and attachments of a deleted or edited message.
-- Technical Detail: It utilizes the MongoDB expires index. By setting this to 7d, MongoDB's background task will automatically purge documents older than a week, ensuring the database remains lean and privacy standards are maintained.
+This manual serves as a comprehensive deep-dive into every atom of the codebase. It details the underlying logic, the flow of data through the interaction pipeline, and the intentionality behind every architectural decision. Whether you are a user looking to deploy the bot or a developer seeking to learn state-of-the-art Discord.js patterns, this is your definitive guide.
 
 ---
 
-## Part 3: Interaction and Event Pipeline
+## 🏛️ Phase 1: Global Infrastructure & Bootstrapping
 
-### The Interaction Hub: events/interactionCreate.js
-This is the most complex event in the bot's lifecycle. It acts as a switchboard for three types of interactions:
-1. Chat Inputs: Standard slash commands. It lookups the command in the client.commands collection and triggers its execute function.
-2. String Select Menus: Primarily used in the help system. When a user selects a category, the event parses the value (e.g., 'moderation') and rebuilds the helper UI with the corresponding command list.
-3. Buttons: Used for the ticket system and NSFW pagination. It uses a customId naming convention (e.g., hentai_img:category) to pass state from the message back to the execution logic, allowing for "Another One" style functionality without needing separate command calls.
+The initialization of Celestia is a strictly choreographed sequence designed to ensure stability and race-condition prevention.
 
-### Message Monitoring: events/messageDelete.js
-Every time a message is deleted, the gateway emits an event. This module filters out bot messages (to prevent infinite loops and noise) and creates a new document in the Snipe collection. It maps the attachment URLs into an array, preserving the media link even if the original message is gone from Discord's servers.
+### 1.1 The Orchestrator: `index.js`
 
----
+The entry point of the application manages the entire lifecycle of the bot.
 
-## Part 4: Command Logic Deep-Dive
+- **Safe Environment Injection**: Early-stage invocation of `dotenv` ensures that all subsequent initializations (DB connections, REST registrations) have immediate access to `TOKEN` and `MONGODB_URI`.
+- **High-Fidelity Gateway Intents**: Instantiated with `GatewayIntentBits` including `Guilds`, `GuildMembers`, `GuildMessages`, `MessageContent`, and `GuildPresences`. This opts the bot into high-data streams required for real-time moderation and state tracking.
+- **Shared Database Instance**: Mongoose is used to establish a persistent connection to MongoDB. This connection is shared globally across all models, ensuring that data is never fragmented.
+- **Modular Delegation**: The bot offloads logic to `handlers/commandHandler.js` and `handlers/eventHandler.js`, which dynamically attach collections and listeners to the client.
 
-### Moderation: commands/moderation/quarantine.js
-The quarantine system is a manual override of the standard permission model.
-- Internal Logic: When a user is quarantined, the bot assigns a designated role. Crucially, the code includes a check to ensure the quarantine role has no permissions itself. It also interacts with the Guild model to restrict the user to a specific channel.
-- Permission Check: It ensures the moderator has ManageMembers and makes a role hierarchy check (role.position >= highestRole.position) to prevent staff from quarantining each other or the bot itself.
+### 1.2 Dynamic Registry: `handlers/commandHandler.js`
 
-### Utility: commands/utility/help.js
-The help system demonstrates the power of Discord Components V2. It doesn't just list commands; it provides an interactive browser. It dynamically counts the number of commands in each category from the live client.commands collection, ensuring the documentation is always accurate to the current build.
+This module transitions raw JS files into functional Discord Slash Commands.
 
-### Utility: commands/utility/snipe.js
-Retrieval logic:
-1. Query: It searches the Snipe collection for the most recent document matching the current channel's ID.
-2. Resolution: It uses client.users.fetch to turn the authorId snowflake into a readable user object (including avatar and tag).
-3. UI Construction: It builds a multi-section container, displaying the original text content in a blockquote and any attachments in a media gallery.
+- **Synchronous Discovery**: Navigates the `commands/` directory to mapping subfolders to categories.
+- **Dual-Layer Collection**: Commands are stored in a `client.commands` Collection. If a command defines an alias, the handler creates a pointer to the original command object, ensuring zero-duplication of logic.
+- **Global REST Sync**: Once the client is ready, the handler aggregates all command metadata, converts it to JSON, and performs a bulk `PUT` request to the Discord API. This refreshes the command UI in the Discord client for every server the bot is in.
+
+### 1.3 Reactive Pipeline: `handlers/eventHandler.js`
+
+Abstracts the gateway listeners away from the entry point. It registers every file in the `events/` folder using `client.on()` or `client.once()`. This ensures that as the bot grows, the `index.js` remains clean and maintainable.
 
 ---
 
-## Part 5: Service Layer and External Providers
+## 💎 Phase 2: Premium UI Standard (Discord Components V2)
 
-### The NSFW Wrapper: utils/nsfw-api-wrapper.js
-This utility acts as a facade pattern. Instead of commands calling Axios directly, they call the wrapper. This centralization allows for global error logging and easier swapping of providers.
+Celestia implements a **Unified Design System** that mimics premium mobile and desktop applications. Every interaction is architected within a `ContainerBuilder`.
 
-### Provider Mechanics: utils/providers/redgifs.js
-RedGifs requires a temporary authentication token. The implementation includes an intelligent caching layer:
-- It stores the token and its expiry locally in the class instance.
-- Before every search, it checks if Date.now() is less than the expiry time.
-- If expired or missing, it performs an asynchronous fetch to /auth/temporary and updates the cache. This minimizes redundant network requests.
+### 2.1 The Visual Layout Standard
 
-### Provider Mechanics: utils/providers/hanime.js
-Interestingly, this provider is currently configured to interface with Danbooru's JSON API for video content. It sanitizes user search queries by replacing spaces with underscores (the tag format used by Booru-style APIs) and appends rating:explicit and video tags to ensure the content remains within the expected NSFW scope.
+Every command output follows this strict hierarchy for maximum aesthetic impact:
 
----
+1. **Level 1 Title (`# Header`)**: Uses large-scale markdown to provide immediate context (e.g., `# 🔨 User Banned`).
+2. **Interactive Separators**: `SeparatorBuilder` is used with `.setDivider(true)` to create clean, readable segments.
+3. **The Information Section**: `SectionBuilder` acts as the primary data carrier. It typically pairs detailed text with a `ThumbnailAccessory` (User avatars or Server icons).
+4. **Side-Action Buttons**: Standardized use of `setButtonAccessory` on sections for high-tier interactive patterns like "Another One" (NSFW) or "Open Ticket" (Utility).
+5. **Main Content Block**: Where the core data resides—from Audit logs to Anime GIFs.
+6. **Media Galleries**: `MediaGalleryBuilder` is utilized for all visual media, ensuring images and GIFs are presented in a high-quality grid or singular focus.
+7. **Interactive Footer**: Small-scale text displaying powered-by credits and timestamps.
 
-## Part 6: Deployment and Operational Security
+### 2.2 Instant Transitions
 
-### Intent Requirements
-For the bot to function, the following Privileged Gateway Intents must be enabled in the Discord Developer Portal:
-- PRESENCE INTENT: Required for status-related commands and tracking member activity.
-- SERVER MEMBERS INTENT: Essential for the quarantine and ban systems to resolve member objects.
-- MESSAGE CONTENT INTENT: Critical for the legacy prefix system and the snipe engine to read message text.
-
-### Scaling and Maintenance
-The use of Mongoose and a modular folder structure allows Celestia to scale to hundreds of commands without performance degradation. The asynchronous nature of the execute functions ensures that the bot remains responsive to other gateway events while performing database transactions or API requests.
+Celestia utilizes `i.update()` for all interactive elements. This eliminates the "thinking" lag seen in other bots, providing an instantaneous, fluid UX that feels alive and responsive.
 
 ---
 
-## Part 7: Deployment via GitHub Actions (Persistent Hosting)
+## 🛡️ Phase 3: Moderation & Security Systems
 
-The repository includes a specialized workflow for running the bot within the GitHub Actions environment. This method is designed to maximize uptime while adhering to the platform's execution limits.
+The moderation suite is designed for "Absolute Server Integrity."
 
-### Step 1: Security and Secret Configuration
+### 3.1 The Quarantine Protocol (`quarantine.js`)
 
-To maintain operational security on a public repository, sensitive credentials must never be hardcoded into the workflow file. You must register them as GitHub Secrets:
+This is the most complex moderation command in the bot. It goes beyond simple roles:
 
-1. Navigate to your repository on GitHub.
-2. Go to Settings > Secrets and variables > Actions.
-3. Create a New repository secret for each of the following:
-    - TOKEN: Your Discord Bot Token.
-    - MONGODB_URI: The connection string for your MongoDB cluster.
-    - PYTHON_SERVICE_URL: The URL of your auxiliary Python service (default: http://localhost:8000).
+- **Manual Override**: Isolates a user by assigning a stripped role.
+- **Dynamic Permission Tuning**: Offers a **UI-based toggle system**. Moderators can configure 7 different permissions (View, Send, History, Reactions, etc.) using buttons that switch between `True` and `False` in real-time.
+- **Channel Binding**: Binds the quarantine process to a specific server configuration found in `models/Guild.js`.
 
-### Step 2: Manual Workflow Initiation
+### 3.2 Snipe & Retention Engine (`snipe.js`)
 
-The workflow is configured with a workflow_dispatch trigger, allowing you to start it at any time.
+A sophisticated retrieval system for deleted/edited messages:
 
-1. Open the Actions tab in your repository.
-2. Select the "Persistent Bot Host" workflow from the sidebar.
-3. Click the "Run workflow" dropdown menu.
-4. Ensure the branch is set to main and click the green "Run workflow" button.
+- **Real-time Capture**: The `messageDelete` and `messageUpdate` events instantly documents activity in MongoDB.
+- **Data Preservation**: Even if a message is deleted, Celestia keeps a temporary cache of the text and attachments.
+- **Automatic Purging**: Utilizes the MongoDB **TTL (Time To Live)** index. Every snipe record is automatically deleted after 7 days, balancing utility with user privacy.
 
-### Step 3: Lifecycle and Maintenance
+### 3.3 Audit Log Integration (`modlog.js`)
 
-The hosting engine is designed for semi-autonomy:
-- Heartbeat Cycle: Every 30 minutes, a cron schedule triggers a check. If no instance is running, or if the current instance is approaching its timeout, a new session is queued.
-- Concurrency Management: The system utilizes a bot-hosting concurrency group. This prevents multiple instances from logging into the same Discord client simultaneously, which would cause session flapping and API rate-limiting.
-- Execution Window: Each session is capped at 5.5 hours. This proactive shutdown allows for a clean transition before GitHub's 6-hour hard kill limit is reached.
+Records every destructive action (BAN, KICK, TIMEOUT, LOCK, QUARANTINE). It generates a permanent history that can be retrieved via `/modlog show`, featuring pagination inside a clean UI container.
+
+---
+
+## 🔞 Phase 4: The Definitive NSFW Engineering Masterclass
+
+Celestia features an industry-leading, high-fidelity NSFW engine designed for the ultimate content discovery experience. This is not a simple image fetcher; it is a **centralized media delivery system** that aggregates the finest content from the web's most prominent adult providers.
+
+### 4.1 The "Facade" Architecture (`nsfw-api-wrapper.js`)
+
+At the core of the NSFW system is the **Facade Design Pattern**. Commands never touch external APIs directly. Instead, they communicate with a centralized wrapper that:
+
+- **Normalizes Data**: Converts varying API responses (JSON, XML, Plaintext) into a unified internal format.
+- **Load Balancing & Redundancy**: Intelligent fallback logic ensures that if one provider is down, the system maintains service.
+- **Security & Sanitization**: Filters and validates all outgoing search queries and incoming media links.
+
+### 4.2 The "Elite" Provider Suite (`utils/providers/`)
+
+Our engine is powered by a diverse array of specialized scrapers and API integrations:
+
+- **🎬 RedGifs (IRL Media)**:
+  - **The Auth Challenge**: RedGifs requires a temporary Bearer token for every session.
+  - **Intelligent Token Caching**: Celestia implements a proactive caching layer that stores and monitors token expiry. New auth requests are only triggered when necessary, resulting in lightning-fast content delivery.
+  - **High-Res Scrapers**: Dedicated logic for fetching the highest available resolution for video previews.
+- **🌸 Hanime & Booru-Style (Hentai Video)**:
+  - **Semantic Search**: Converts user search terms into optimized Booru-tags (e.g., "school girl" → `school_girl`).
+  - **Implicit Filtering**: Automatically appends `rating:explicit` and `video` tags to ensure content strictly follows the command's intent.
+- **🖼️ NekoBot & Waifu.pics (Anime Art)**:
+  - **Categorical Depth**: Access to over 20+ specialized categories including `Paizuri`, `Tentacle`, `Midriff`, and `Kitsune`.
+  - **Dynamic GIF Support**: Intelligent detection of animated vs. static content for optimal rendering.
+
+### 4.3 The "Another One" Premium UX
+
+The NSFW commands (`/hentai`, `/porn`) are the gold standard for Celestia's UI philosophy:
+
+- **Side-Button Refresh**: Unlike other bots that require re-typing, Celestia places a green `Another One` button accessory directly on the info section. This triggers an **Instant State Update**, refreshing the content without cluttering the channel with new messages.
+- **Subcommand Organization**: Content is organized into clean, searchable subcommands, making the entire library accessible at a glance.
+- **Direct Media Delivery**: For videos, the bot prioritizes direct attachment sending to leverage Discord's native player, with a URL fallback for oversized files.
+
+---
+
+---
+
+## 🎫 Phase 5: Utility & Engagement
+
+### 5.1 Support Tickets (`ticket.js`)
+
+A streamlined system for server support:
+
+- **Single-Button UI**: Persistent "Open Ticket" button inside a premium container.
+- **Permission Logic**: Automatically creates private channels with overrides for the user and staff roles.
+
+### 5.2 Interactive Help (`help.js`)
+
+A dynamic browser that scans the `client.commands` Collection in real-time. It provides a string select menu to filter by category, ensuring the user always sees the most up-to-date documentation.
+
+---
+
+## 💾 Phase 6: Data Persistence Layer (Mongoose)
+
+Celestia uses a document-oriented data model:
+
+- **`Guild.js`**: Stores server configuration (prefixes, quarantine roles, log channels).
+- **`ModLog.js`**: A secure, read-only history of staff actions.
+- **`Snipe.js`**: A high-velocity, auto-expiring collection for message recovery.
+- **`QuarantineUser.js`**: Tracks the state of currently isolated members to prevent "leave-to-bypass" exploits.
+
+---
+
+## 🚀 Phase 7: Deployment & Operational Security
+
+### 7.1 Gateway Intents
+
+For full functionality, ensure these are enabled in your Discord Developer Portal:
+
+- **Presence Intent**: For status tracking.
+- **Server Members Intent**: For hierarchy/role management.
+- **Message Content Intent**: For prefix commands and the Snipe engine.
+
+### 7.2 GitHub Actions Hosting (The "Persistent Host")
+
+The repository includes a world-class CI/CD hosting pipeline:
+
+- **Automatic Resumption**: A 30-minute cron heartbeat checks bot status.
+- **Session Guard**: Uses GitHub's `concurrency` groups to prevent overlapping instances.
+- **Clean Shutdown**: Sessions are capped at 5.5 hours to avoid GitHub's 6-hour hard hard-kill, allowing for a graceful transition between runners.
+
+---
+
+## 📜 Educational Disclaimer
+
+Celestia is designed to be **Self-Documenting Source Code**. We have removed cluttered comments in favor of clean, descriptive naming conventions and modular folder structures. This project is a living tutorial on how to build high-performance, high-aesthetic Discord applications in the modern era.
+
+*Made with 💖 by the Celestia Engineering Team. Freedom to learn. Freedom to build.*

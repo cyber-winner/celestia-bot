@@ -42,7 +42,7 @@ module.exports = {
         }
 
         const durationMs = ms(durationStr);
-        if (!durationMs || durationMs < 10000 || durationMs > 2419200000) { // Discord max is 28 days
+        if (!durationMs || durationMs < 10000 || durationMs > 2419200000) {
             return interaction.reply({ content: '> ❌ Invalid duration. Must be between 10 seconds and 28 days.', flags: MessageFlags.Ephemeral });
         }
 
@@ -92,12 +92,15 @@ module.exports = {
 
             const container = new ContainerBuilder()
                 .setAccentColor(0x3498db)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## ⏳  User Timed Out')
+                    new TextDisplayBuilder().setContent('# ⏳ User Timed Out')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
@@ -112,13 +115,15 @@ module.exports = {
                             new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
-                        `📅 **Ends:** <t:${Math.floor((Date.now() + durationMs) / 1000)}:R>` +
-                        (deleteDays > 0 ? `\n🗑️ **Messages Deleted:** ~${messagesDeleted} (in current channel)` : '')
+                        `-# ⏱️ Ends <t:${Math.floor((Date.now() + durationMs) / 1000)}:R>` +
+                        (deleteDays > 0 ? `  •  🗑️ ~${messagesDeleted} messages deleted` : '')
                     )
                 );
 

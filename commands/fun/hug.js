@@ -34,12 +34,15 @@ module.exports = {
 
             const container = new ContainerBuilder()
                 .setAccentColor(0x7fe7b4)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## 🤗  Warm Hug!')
+                    new TextDisplayBuilder().setContent('# 🤗 Warm Hug!')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
@@ -52,17 +55,21 @@ module.exports = {
                             new ThumbnailBuilder().setURL(target.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addMediaGalleryComponents(
                     new MediaGalleryBuilder().addItems(
                         new MediaGalleryItemBuilder().setURL(gif.url)
                     )
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(`-# 🎬 Anime: *${gif.anime_name}*`)
                 );

@@ -49,12 +49,8 @@ module.exports = {
         try {
             let messagesDeleted = 0;
             if (deleteDays > 0) {
-                // Manually delete recent messages
                 try {
                     const cutoffTime = Date.now() - (deleteDays * 24 * 60 * 60 * 1000);
-                    // This is a naive attempt; fully deleting from all channels is expensive and rate-limited.
-                    // Doing a quick purge in the current channel just as an example of manual deletion, 
-                    // or we could use the new `bulkDelete` if it supports users natively cross-channel (it doesn't).
                     if (interaction.channel) {
                         const fetched = await interaction.channel.messages.fetch({ limit: 100 });
                         const toDelete = fetched.filter(m => m.author.id === targetUser.id && m.createdTimestamp > cutoffTime);
@@ -82,12 +78,15 @@ module.exports = {
 
             const container = new ContainerBuilder()
                 .setAccentColor(0xe67e22)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## 👢  User Kicked')
+                    new TextDisplayBuilder().setContent('# 👢 User Kicked')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
@@ -101,13 +100,15 @@ module.exports = {
                             new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
-                        `📅 **Date:** <t:${Math.floor(Date.now() / 1000)}:F>` +
-                        (deleteDays > 0 ? `\n🗑️ **Messages Deleted:** ~${messagesDeleted} (in current channel)` : '')
+                        `-# 📅 <t:${Math.floor(Date.now() / 1000)}:F>` +
+                        (deleteDays > 0 ? `  •  🗑️ ~${messagesDeleted} messages deleted` : '')
                     )
                 );
 

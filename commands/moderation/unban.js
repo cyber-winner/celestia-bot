@@ -53,12 +53,15 @@ module.exports = {
 
             const container = new ContainerBuilder()
                 .setAccentColor(0x2ecc71)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## 🕊️  User Unbanned')
+                    new TextDisplayBuilder().setContent('# 🕊️ User Unbanned')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
@@ -72,12 +75,14 @@ module.exports = {
                             new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
-                        `📅 **Date:** <t:${Math.floor(Date.now() / 1000)}:F>`
+                        `-# 📅 <t:${Math.floor(Date.now() / 1000)}:F>  •  ✅ User can now rejoin the server`
                     )
                 );
 

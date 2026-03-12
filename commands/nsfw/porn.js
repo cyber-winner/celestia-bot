@@ -31,26 +31,30 @@ const IRL_IMAGE_CATEGORIES = [
 
 module.exports = {
     category: 'nsfw',
-    data: new SlashCommandBuilder()
-        .setName('porn')
-        .setDescription('🔞 Fetch IRL porn content (images & videos)')
-        .addSubcommand(sub =>
-            sub.setName('image')
-                .setDescription('Get random IRL porn images')
-                .addStringOption(opt =>
-                    opt.setName('category')
-                        .setDescription('Image category')
-                        .addChoices(...IRL_IMAGE_CATEGORIES)
-                )
-        )
-        .addSubcommand(sub =>
+    data: (() => {
+        const builder = new SlashCommandBuilder()
+            .setName('porn')
+            .setDescription('🔞 Fetch IRL porn content (images & videos)');
+
+        for (const cat of IRL_IMAGE_CATEGORIES) {
+            const subName = cat.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+            builder.addSubcommand(sub =>
+                sub.setName(subName)
+                    .setDescription(`${cat.name} images`)
+            );
+        }
+
+        builder.addSubcommand(sub =>
             sub.setName('video')
                 .setDescription('Search for IRL porn videos')
                 .addStringOption(opt =>
                     opt.setName('query')
                         .setDescription('Search query (e.g. "milf", "teen", "blonde")')
                 )
-        ),
+        );
+
+        return builder;
+    })(),
 
     async execute(interaction) {
         if (!interaction.channel.nsfw) {
@@ -64,23 +68,23 @@ module.exports = {
             await interaction.deferReply();
             const subcommand = interaction.options.getSubcommand();
 
-            if (subcommand === 'image') {
-                return this.handleImage(interaction);
-            } else if (subcommand === 'video') {
+            if (subcommand === 'video') {
                 return this.handleVideo(interaction);
+            } else {
+                return this.handleImage(interaction, false, subcommand);
             }
         }
     },
 
-    
 
-    async handleImage(interaction, isReload = false) {
+
+    async handleImage(interaction, isReload = false, subcommandCategory = null) {
         let category = '4k';
 
         if (isReload) {
             category = interaction.customId.split(':')[1] || '4k';
-        } else {
-            category = interaction.options.getString('category') || '4k';
+        } else if (subcommandCategory) {
+            category = subcommandCategory;
         }
 
         const result = await nsfw.getPornImage(category);
@@ -99,20 +103,43 @@ module.exports = {
 
         const container = new ContainerBuilder()
             .setAccentColor(0xff4500)
+            
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`## 🔞 IRL Porn Image`)
+                new TextDisplayBuilder().setContent(`# 🔞 IRL Porn Image`)
             )
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `📁 **Category:** ${categoryLabel}\n` +
-                    `✨ **Type:** Real Life (IRL)`
-                )
-            )
+            
             .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+            
+            .addSectionComponents(
+                new SectionBuilder()
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(
+                            `📁 **Category:** ${categoryLabel}\n` +
+                            `✨ **Type:** Real Life (IRL)\n\n` +
+                            `-# Click the image to view full size`
+                        )
+                    )
+                    .setButtonAccessory(
+                        new ButtonBuilder()
+                            .setLabel('Another One')
+                            .setStyle(ButtonStyle.Success)
+                            .setCustomId(`porn_img:${category}`)
+                            .setEmoji('🔁')
+                    )
+            )
+            
+            .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+            
             .addMediaGalleryComponents(
                 new MediaGalleryBuilder().addItems(
                     new MediaGalleryItemBuilder().setURL(imageUrl)
                 )
+            )
+            
+            .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+            
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`-# 🔞 Powered by NekoBot`)
             )
             .addActionRowComponents(
                 new ActionRowBuilder().addComponents(
@@ -120,16 +147,8 @@ module.exports = {
                         .setLabel('Open in Browser')
                         .setStyle(ButtonStyle.Link)
                         .setURL(imageUrl)
-                        .setEmoji('🔗'),
-                    new ButtonBuilder()
-                        .setLabel('Another One')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setCustomId(`porn_img:${category}`)
-                        .setEmoji('🔁')
+                        .setEmoji('🔗')
                 )
-            )
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`-# 🔞 Powered by NekoBot`)
             );
 
         return interaction.editReply({
@@ -138,7 +157,7 @@ module.exports = {
         });
     },
 
-    
+
 
     async handleVideo(interaction, isReload = false) {
         let query = '';
@@ -172,7 +191,6 @@ module.exports = {
 
         actionRow.addComponents(
             new ButtonBuilder()
-                .setLabel('Another One')
                 .setStyle(ButtonStyle.Secondary)
                 .setCustomId(`porn_vid:${encodeURIComponent(query)}`)
                 .setEmoji('🔁')

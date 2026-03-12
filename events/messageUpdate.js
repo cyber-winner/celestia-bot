@@ -6,7 +6,7 @@ module.exports = {
     async execute(oldMessage, newMessage) {
         if (oldMessage.partial) return;
         if (oldMessage.author?.bot) return;
-        if (oldMessage.content === newMessage.content) return; // Ignore updates like embed unfurling
+        if (oldMessage.content === newMessage.content) return; 
 
         await Snipe.create({
             guildId: oldMessage.guild.id,

@@ -68,12 +68,15 @@ module.exports = {
 
         const container = new ContainerBuilder()
             .setAccentColor(0x1abc9c)
+            
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('## 🧼  User Sanitized')
+                new TextDisplayBuilder().setContent('# 🧼 User Sanitized')
             )
+            
             .addSeparatorComponents(
-                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addSectionComponents(
                 new SectionBuilder()
                     .addTextDisplayComponents(
@@ -87,12 +90,24 @@ module.exports = {
                         new ThumbnailBuilder().setURL(targetMember.user.displayAvatarURL({ size: 64 }))
                     )
             )
+            
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addMediaGalleryComponents(
                 new MediaGalleryBuilder().addItems(
                     new MediaGalleryItemBuilder().setURL(proofAttachment.url)
+                )
+            )
+            
+            .addSeparatorComponents(
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+            )
+            
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# ✅ Roles restored  •  Quarantine lifted at <t:${Math.floor(Date.now() / 1000)}:F>`
                 )
             );
 

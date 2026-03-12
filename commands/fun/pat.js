@@ -16,7 +16,7 @@ module.exports = {
     category: 'fun',
     data: new SlashCommandBuilder()
         .setName('pat')
-        .setDescription('Pat someone on the head!')
+        .setDescription('Pat someone!')
         .addUserOption(opt => opt.setName('user').setDescription('The user to pat').setRequired(true)),
     aliases: ['pat'],
     async execute(interaction, client, args) {
@@ -33,36 +33,43 @@ module.exports = {
             const gif = res.data.results[0];
 
             const container = new ContainerBuilder()
-                .setAccentColor(0xb39ddb)
+                .setAccentColor(0xffc107)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## 🐾  Head Pat!')
+                    new TextDisplayBuilder().setContent('# 🫳 Head Pat!')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
                             new TextDisplayBuilder().setContent(
-                                `💜 **${user.displayName}** gave **${target.displayName}** a head pat!\n\n` +
-                                `> *Good job, you!* 🌟`
+                                `✨ **${user.displayName}** patted **${target.displayName}**!\n\n` +
+                                `> *Good job~!* 🌟`
                             )
                         )
                         .setThumbnailAccessory(
                             new ThumbnailBuilder().setURL(target.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addMediaGalleryComponents(
                     new MediaGalleryBuilder().addItems(
                         new MediaGalleryItemBuilder().setURL(gif.url)
                     )
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(`-# 🎬 Anime: *${gif.anime_name}*`)
                 );

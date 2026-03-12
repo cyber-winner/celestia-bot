@@ -10,13 +10,11 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
     aliases: ['snipe', 'editsnipe'],
     async execute(interaction, client, args) {
-        // Handle both interaction and prefix commands
         const isInteraction = interaction.isChatInputCommand?.() || false;
         const channelId = interaction.channel?.id;
         const guildId = interaction.guild?.id;
         const user = isInteraction ? interaction.user : interaction.author;
 
-        // If prefix command and not admin
         if (!isInteraction && !interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
             return interaction.reply({ content: '> ❌ You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
         }
@@ -25,16 +23,13 @@ module.exports = {
         if (isInteraction) {
             filterType = interaction.options.getString('type');
         } else if (interaction.commandName === 'editsnipe') {
-            filterType = 'EDIT'; // or alias check
+            filterType = 'EDIT';
         }
 
         const query = { guildId, channelId };
-        if (filterType) {
-            query.type = filterType;
-        }
+        if (filterType) query.type = filterType;
 
-        // Fetch logs for channel, sorted by newest first
-        const snipes = await Snipe.find(query).sort({ createdAt: -1 }).limit(50); // Limit to last 50 for performance
+        const snipes = await Snipe.find(query).sort({ createdAt: -1 }).limit(50);
 
         if (!snipes || snipes.length === 0) {
             return interaction.reply({ content: `> 🔍 There is nothing to snipe in this channel.`, flags: MessageFlags.Ephemeral });
@@ -43,33 +38,67 @@ module.exports = {
         let currentPage = 0;
         const maxPages = snipes.length;
 
+        const getRow = (page) => {
+            if (maxPages <= 1) return null;
+            return new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('first_snipe')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('⏪')
+                    .setDisabled(page === 0),
+                new ButtonBuilder()
+                    .setCustomId('prev_snipe')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('◀️')
+                    .setDisabled(page === 0),
+                new ButtonBuilder()
+                    .setCustomId('page_snipe')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setLabel(`${page + 1}/${maxPages}`)
+                    .setDisabled(true),
+                new ButtonBuilder()
+                    .setCustomId('next_snipe')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('▶️')
+                    .setDisabled(page === maxPages - 1),
+                new ButtonBuilder()
+                    .setCustomId('last_snipe')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('⏩')
+                    .setDisabled(page === maxPages - 1)
+            );
+        };
+
         const generatePageContainer = async (page) => {
             const snipe = snipes[page];
             const targetUser = await client.users.fetch(snipe.authorId).catch(() => null);
             const userTag = targetUser ? targetUser.tag : 'Unknown User';
             const userAvatar = targetUser ? targetUser.displayAvatarURL({ size: 64 }) : null;
 
+            const typeLabel = snipe.type === 'DELETE' ? 'Message Snipe' : 'Edit Snipe';
+            const typeEmoji = snipe.type === 'DELETE' ? '🗑️' : '✏️';
+
             const container = new ContainerBuilder()
-                .setAccentColor(snipe.type === 'DELETE' ? 0xe74c3c : 0xf1c40f) // Red for delete, Yellow for edit
-                .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent(`## 🔫  ${snipe.type === 'DELETE' ? 'Message Snipe' : 'Edit Snipe'}`)
-                )
-                .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-                );
+                .setAccentColor(snipe.type === 'DELETE' ? 0xe74c3c : 0xf1c40f);
 
-            const section = new SectionBuilder();
-            let contentStr = '';
-
-            if (snipe.type === 'DELETE') {
-                contentStr = `**Author:** ${userTag} \`(${snipe.authorId})\`\n**Content:**\n${snipe.content || '*No text content*'}`;
-            } else {
-                contentStr = `**Author:** ${userTag} \`(${snipe.authorId})\`\n**Old Content:**\n${snipe.oldContent || '*No text content*'}\n\n**New Content:**\n${snipe.content || '*No text content*'}`;
-            }
-
-            section.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(contentStr)
+            
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`# ${typeEmoji} ${typeLabel}`)
             );
+
+            
+            container.addSeparatorComponents(
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+            );
+
+            
+            let infoText = `**Author:** ${userTag} \`(${snipe.authorId})\`\n`;
+            infoText += `**When:** <t:${Math.floor(snipe.createdAt.getTime() / 1000)}:R>`;
+
+            const section = new SectionBuilder()
+                .addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(infoText)
+                );
 
             if (userAvatar) {
                 section.setThumbnailAccessory(new ThumbnailBuilder().setURL(userAvatar));
@@ -77,82 +106,94 @@ module.exports = {
 
             container.addSectionComponents(section);
 
-            // Add media gallery if there are attachments
-            if (snipe.attachments && snipe.attachments.length > 0) {
-                container.addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
-                );
-
-                const gallery = new MediaGalleryBuilder();
-                let hasValidMedia = false;
-                for (const url of snipe.attachments) {
-                    // Only add image/video matching simple heuristics or relying on Discord's native handling
-                    gallery.addItems(new MediaGalleryItemBuilder().setURL(url));
-                    hasValidMedia = true;
-                }
-
-                if (hasValidMedia) {
-                    container.addMediaGalleryComponents(gallery);
-                }
-            }
-
+            
             container.addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             );
 
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`📅 <t:${Math.floor(snipe.createdAt.getTime() / 1000)}:R> • Snipe ${page + 1} of ${maxPages}`)
+            
+            if (snipe.type === 'DELETE') {
+                container.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(snipe.content || '*No text content*')
+                );
+            } else {
+                container.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `**Before:**\n${snipe.oldContent || '*No text content*'}\n\n**After:**\n${snipe.content || '*No text content*'}`
+                    )
+                );
+            }
+
+            
+            if (snipe.attachments && snipe.attachments.length > 0) {
+                container.addSeparatorComponents(
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                );
+                const gallery = new MediaGalleryBuilder();
+                for (const url of snipe.attachments) {
+                    gallery.addItems(new MediaGalleryItemBuilder().setURL(url));
+                }
+                container.addMediaGalleryComponents(gallery);
+            }
+
+            
+            container.addSeparatorComponents(
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             );
+
+            
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# 📄 Snipe ${page + 1} of ${maxPages}  •  #${interaction.channel.name}`
+                )
+            );
+
+            
+            const row = getRow(page);
+            if (row) container.addActionRowComponents(row);
 
             return container;
         };
 
-        const getRow = (page) => {
-            return new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('prev_snipe')
-                    .setLabel('Recent')
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(page === 0),
-                new ButtonBuilder()
-                    .setCustomId('next_snipe')
-                    .setLabel('Older')
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(page === maxPages - 1)
-            );
-        };
-
-        const firstPageContainer = await generatePageContainer(currentPage);
+        const firstContainer = await generatePageContainer(currentPage);
 
         const response = await interaction.reply({
-            components: maxPages > 1 ? [firstPageContainer, getRow(currentPage)] : [firstPageContainer],
+            components: [firstContainer],
             flags: MessageFlags.IsComponentsV2,
-            fetchReply: true
+            withResponse: true
         });
 
         if (maxPages > 1) {
-            const collector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 60000 });
+            const message = response.resource?.message;
+            if (!message) return;
+
+            const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: 120_000 });
 
             collector.on('collect', async i => {
                 if (i.user.id !== user.id) {
-                    return i.reply({ content: 'These buttons are not for you!', ephemeral: true });
+                    return i.reply({ content: '> ❌ These buttons are not for you!', flags: MessageFlags.Ephemeral }).catch(() => { });
                 }
 
-                if (i.customId === 'prev_snipe') {
-                    currentPage--;
-                } else if (i.customId === 'next_snipe') {
-                    currentPage++;
-                }
+                if (i.customId === 'first_snipe') currentPage = 0;
+                else if (i.customId === 'prev_snipe') currentPage--;
+                else if (i.customId === 'next_snipe') currentPage++;
+                else if (i.customId === 'last_snipe') currentPage = maxPages - 1;
 
                 const newContainer = await generatePageContainer(currentPage);
                 await i.update({
-                    components: [newContainer, getRow(currentPage)],
+                    components: [newContainer],
                     flags: MessageFlags.IsComponentsV2
-                });
+                }).catch(() => { });
             });
 
-            collector.on('end', () => {
-                interaction.editReply({ components: [firstPageContainer] }).catch(() => { });
+            collector.on('end', async () => {
+                try {
+                    const finalContainer = await generatePageContainer(currentPage);
+                    if (finalContainer.data?.components) {
+                        finalContainer.data.components = finalContainer.data.components.filter(c => (c.type ?? c.data?.type) !== 1);
+                    }
+                    interaction.editReply({ components: [finalContainer], flags: MessageFlags.IsComponentsV2 }).catch(() => { });
+                } catch (e) { }
             });
         }
     },

@@ -25,12 +25,15 @@ module.exports = {
 
         const container = new ContainerBuilder()
             .setAccentColor(0x2ecc71)
+            
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('## 🎫  Support Tickets')
+                new TextDisplayBuilder().setContent('# 🎫 Support Tickets')
             )
+            
             .addSeparatorComponents(
-                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addSectionComponents(
                 new SectionBuilder()
                     .addTextDisplayComponents(
@@ -41,20 +44,21 @@ module.exports = {
                             `⏱️ We aim to respond as quickly as possible.`
                         )
                     )
-                    .setThumbnailAccessory(
-                        new ThumbnailBuilder().setURL('https://cdn.discordapp.com/emojis/1290388671478886480.webp?size=64&quality=lossless')
+                    .setButtonAccessory(
+                        new ButtonBuilder()
+                            .setCustomId('open_ticket')
+                            .setLabel('Open Ticket')
+                            .setStyle(ButtonStyle.Success)
+                            .setEmoji('📩')
                     )
             )
+            
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addActionRowComponents(
                 new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('open_ticket')
-                        .setLabel('Open Ticket')
-                        .setStyle(ButtonStyle.Success)
-                        .setEmoji('📩'),
                     new ButtonBuilder()
                         .setCustomId('ticket_info')
                         .setLabel('How it works')
@@ -62,9 +66,11 @@ module.exports = {
                         .setEmoji('ℹ️')
                 )
             )
+            
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
             )
+            
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(`-# 🟢 Ticket system active  •  Do not abuse this feature.`)
             );

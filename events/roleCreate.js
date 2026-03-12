@@ -11,9 +11,9 @@ module.exports = {
             const qRole = role.guild.roles.cache.get(settings.quarantineRoleId);
             if (!qRole) return;
 
-            // If a new role is created, and it's placed below the quarantine role,
-            // or if the quarantine role isn't at position 1 (right above @everyone), move it down.
-            // Note: role hierarchies updates can be tricky, position 1 is above the default role.
+            
+            
+            
             if (qRole.position > 1) {
                 await qRole.setPosition(1, { reason: 'Ensuring Quarantine role stays at bottom' });
             }

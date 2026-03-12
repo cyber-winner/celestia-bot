@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder } = require('discord.js');
 const { logModerationAction } = require('../../utils/modLogger');
 
 module.exports = {
@@ -24,19 +24,20 @@ module.exports = {
         const targetUser = interaction.options.getUser('user');
         const channel = interaction.channel;
         const guild = interaction.guild;
-
-        // Target ID is the given user, or the @everyone role to lock the whole channel
         const targetId = targetUser ? targetUser.id : guild.id;
 
         let overwritePayload = {};
         let actionStr = '';
+        let lockIcon = '';
 
         if (locktype === 'viewlock') {
             overwritePayload = { ViewChannel: false };
-            actionStr = targetUser ? `🔒 Locked viewing access for ${targetUser.tag}` : `🔒 Channel completely hidden from @everyone`;
+            lockIcon = '👁️‍🗨️';
+            actionStr = targetUser ? `Hidden from **${targetUser.tag}**` : `Hidden from **@everyone**`;
         } else if (locktype === 'msglock') {
             overwritePayload = { SendMessages: false };
-            actionStr = targetUser ? `🔒 Locked message sending for ${targetUser.tag}` : `🔒 Channel locked for messaging from @everyone`;
+            lockIcon = '💬';
+            actionStr = targetUser ? `Messaging disabled for **${targetUser.tag}**` : `Messaging disabled for **@everyone**`;
         }
 
         try {
@@ -48,17 +49,37 @@ module.exports = {
 
         const container = new ContainerBuilder()
             .setAccentColor(0xe74c3c)
+            
             .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`## 🔒  Channel Locked`)
+                new TextDisplayBuilder().setContent('# 🔒 Channel Locked')
             )
+            
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
+            
             .addSectionComponents(
                 new SectionBuilder()
                     .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`**Status:** ${actionStr}`)
+                        new TextDisplayBuilder().setContent(
+                            `${lockIcon} **Type:** ${locktype === 'viewlock' ? 'View Lock' : 'Message Lock'}\n` +
+                            `**Status:** ${actionStr}\n` +
+                            `**Channel:** #${channel.name}`
+                        )
                     )
+                    .setThumbnailAccessory(
+                        new ThumbnailBuilder().setURL(guild.iconURL({ size: 64 }) || 'https://cdn.discordapp.com/embed/avatars/0.png')
+                    )
+            )
+            
+            .addSeparatorComponents(
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+            )
+            
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `-# 🔐 Use \`/unlock\` to reverse this action`
+                )
             );
 
         return interaction.reply({

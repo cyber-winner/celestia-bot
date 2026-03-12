@@ -73,8 +73,6 @@ module.exports = {
                 emoji: '🔨'
             });
 
-            // If a duration is provided, we can set a timeout to unban them later.
-            // Note: If the bot restarts, this timeout will be lost unless stored persistently and re-scheduled.
             if (durationDays) {
                 setTimeout(async () => {
                     try {
@@ -90,12 +88,15 @@ module.exports = {
 
             const container = new ContainerBuilder()
                 .setAccentColor(0xed4245)
+                
                 .addTextDisplayComponents(
-                    new TextDisplayBuilder().setContent('## 🔨  User Banned')
+                    new TextDisplayBuilder().setContent('# 🔨 User Banned')
                 )
+                
                 .addSeparatorComponents(
-                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false)
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
@@ -110,13 +111,14 @@ module.exports = {
                             new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 64 }))
                         )
                 )
+                
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
+                
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(
-                        `📅 **Date:** <t:${Math.floor(Date.now() / 1000)}:F>\n` +
-                        `🗑️ **Messages Deleted:** ${deleteDays > 0 ? `${deleteDays} day(s)` : 'None'}`
+                        `-# 📅 <t:${Math.floor(Date.now() / 1000)}:F>  •  ${deleteDays > 0 ? `🗑️ ${deleteDays} day(s) of messages deleted` : '🗑️ No messages deleted'}`
                     )
                 );
 
