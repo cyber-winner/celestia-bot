@@ -78,7 +78,7 @@ async function initiateDiscordLink(discordId, discordUsername) {
     }
 
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     if (existing) {
         // Update existing record with new OTP
@@ -109,7 +109,11 @@ async function initiateDiscordLink(discordId, discordUsername) {
  * Validates OTP and merges data.
  */
 async function completeLink(otp, whatsappId) {
-    const account = await LinkedAccount.findOne({ otp, otpExpiry: { $gt: new Date() } });
+    const cleanOtp = String(otp || '').trim();
+    const account = await LinkedAccount.findOne({
+        otp: cleanOtp,
+        $expr: { $gt: [ "$otpExpiry", "$$NOW" ] }
+    });
     if (!account) return { success: false, reason: 'invalid_otp' };
 
     const discordId = account.discordId;
@@ -150,7 +154,7 @@ async function initiateWhatsAppLink(whatsappId, whatsappName) {
     }
 
     const otp = generateOTP();
-    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     if (existing) {
         existing.otp = otp;
@@ -178,7 +182,11 @@ async function initiateWhatsAppLink(whatsappId, whatsappName) {
  * Complete WhatsApp → Discord link (called from Discord side).
  */
 async function completeLinkFromDiscord(otp, discordId, discordUsername) {
-    const account = await LinkedAccount.findOne({ otp, otpExpiry: { $gt: new Date() } });
+    const cleanOtp = String(otp || '').trim();
+    const account = await LinkedAccount.findOne({
+        otp: cleanOtp,
+        $expr: { $gt: [ "$otpExpiry", "$$NOW" ] }
+    });
     if (!account) return { success: false, reason: 'invalid_otp' };
 
     const oldDiscordUserId = `discord_${discordId}`;

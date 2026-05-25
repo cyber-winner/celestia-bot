@@ -86,7 +86,7 @@ module.exports = {
                     `1. Open WhatsApp and go to **Celestia's DM**\n` +
                     `2. Type: \`-connect ${result.otp}\`\n` +
                     `3. Done! Your accounts will be synced.\n\n` +
-                    `⏰ **Expires in 5 minutes.**\n\n` +
+                    `⏰ **Expires in 15 minutes.**\n\n` +
                     `> After linking, your Pokémon, coins, and progress\n` +
                     `> will be shared across both platforms!`
                 ));
