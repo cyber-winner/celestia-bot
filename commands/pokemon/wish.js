@@ -17,9 +17,21 @@ module.exports = {
         ),
     aliases: ['gacha', 'pull'],
 
-    async execute(interaction) {
-        const wishCount = interaction.options?.getInteger?.('count') || 1;
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteractionObj = !!interaction.user;
+        const author = isInteractionObj ? interaction.user : interaction.author;
+
+        let wishCount = 1;
+        if (isInteractionObj && typeof interaction.options?.getInteger === 'function') {
+            wishCount = interaction.options.getInteger('count') || 1;
+        } else if (args && args.length > 0) {
+            wishCount = parseInt(args[0]) || 1;
+        }
+
+        if (wishCount < 1) wishCount = 1;
+        if (wishCount > 10) wishCount = 10;
+
+        const userId = await accountStore.resolveUserId(author.id);
 
         // Check compasses
         const inventory = await economyStore.getInventory(userId);
@@ -58,7 +70,7 @@ module.exports = {
         container.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `## ✨ ${bannerInfo.name}\n` +
-                `> ${wishCount}× Wish${wishCount > 1 ? 'es' : ''} by **${interaction.user.username}**`
+                `> ${wishCount}× Wish${wishCount > 1 ? 'es' : ''} by **${author.username}**`
             )
         );
 

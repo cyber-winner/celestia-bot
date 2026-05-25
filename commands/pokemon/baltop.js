@@ -14,17 +14,24 @@ module.exports = {
             .addChoices({ name: 'PokéCoins', value: 'coins' }, { name: 'Radiant Crystals', value: 'crystals' })),
     aliases: ['richest'],
 
-    async execute(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        if (isInteraction) {
+            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+        }
 
-        const type = interaction.options?.getString?.('type') || 'coins';
+        const type = isInteraction ? (interaction.options?.getString?.('type') || 'coins') : (args?.[0]?.toLowerCase() === 'crystals' ? 'crystals' : 'coins');
         const isCrystals = type === 'crystals';
         const top = isCrystals ? await economyStore.getCrystalTop(10) : await economyStore.getBalTop(10);
 
         if (top.length === 0) {
             const container = new ContainerBuilder().setAccentColor(COLORS.WARNING)
                 .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 💰 No data yet!`));
-            return interaction.editReply({ components: [container] });
+            if (isInteraction) {
+                return interaction.editReply({ components: [container] });
+            } else {
+                return interaction.reply({ components: [container] });
+            }
         }
 
         let boardText = '';
@@ -48,7 +55,11 @@ module.exports = {
             new ButtonBuilder().setCustomId('baltop_crystals').setLabel('Crystals').setEmoji('💎').setStyle(isCrystals ? ButtonStyle.Primary : ButtonStyle.Secondary),
         );
 
-        await interaction.editReply({ components: [container, row] });
+        if (isInteraction) {
+            await interaction.editReply({ components: [container, row] });
+        } else {
+            await interaction.reply({ components: [container, row] });
+        }
     },
 
     async handleButton(interaction) {

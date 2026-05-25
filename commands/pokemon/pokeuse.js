@@ -16,15 +16,45 @@ module.exports = {
         .addStringOption(opt => opt.setName('pokemon').setDescription('Pokémon name to use item on').setRequired(true)),
     aliases: ['use'],
 
-    async execute(interaction) {
-        const itemName = interaction.options.getString('item');
-        const pokemonName = interaction.options.getString('pokemon');
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const userId = await accountStore.resolveUserId(author.id);
+
+        let itemName = null;
+        let pokemonName = null;
+
+        if (isInteraction) {
+            itemName = interaction.options.getString('item');
+            pokemonName = interaction.options.getString('pokemon');
+        } else if (args && args.length > 0) {
+            const lowerArg = args.join(' ').toLowerCase();
+            if (lowerArg.startsWith('level orb')) {
+                itemName = 'level orb';
+                pokemonName = args.slice(2).join(' ');
+            } else if (lowerArg.startsWith('summoning candle')) {
+                itemName = 'summoning candle';
+                pokemonName = args.slice(2).join(' ');
+            } else if (lowerArg.startsWith('candle')) {
+                itemName = 'summoning candle';
+                pokemonName = args.slice(1).join(' ');
+            } else if (lowerArg.startsWith('orb')) {
+                itemName = 'level orb';
+                pokemonName = args.slice(1).join(' ');
+            }
+        }
+
+        if (!itemName || !pokemonName) {
+            return interaction.reply({
+                components: [errorContainer('Invalid Use', 'Specify an item (level orb / summoning candle) and a Pokémon: `!use <item> <pokemon>`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
 
         if (itemName === 'level orb') {
             return this.handleLevelOrb(interaction, userId, pokemonName);
         } else if (itemName === 'summoning candle') {
-            return this.handleSummoningCandle(interaction, userId, pokemonName);
+            return this.handleSummoningCandle(interaction, userId, pokemonName, author);
         }
     },
 
@@ -46,7 +76,7 @@ module.exports = {
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     },
 
-    async handleSummoningCandle(interaction, userId, pokemonName) {
+    async handleSummoningCandle(interaction, userId, pokemonName, author) {
         const channelId = interaction.channelId;
         // Check candle in inventory
         const inventory = await economyStore.getInventory(userId);
@@ -90,7 +120,7 @@ module.exports = {
             `🏷️ **${summon.name}** has answered the call!\n` +
             `📊 **Level:** ${summon.level}\n` +
             `🔖 **Type:** ${(summon.types || []).join(' / ')}\n\n` +
-            `👤 **Summoner:** ${interaction.user.username}\n` +
+            `👤 **Summoner:** ${author.username}\n` +
             `🎯 **Tries:** 3/3 · **Cost:** 2 balls per try\n\n` +
             `> Type \`celestia catch ${summon.name}\` to catch it!\n` +
             `> Only the summoner can catch this Pokémon.`

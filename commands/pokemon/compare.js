@@ -14,10 +14,20 @@ module.exports = {
         .addStringOption(opt => opt.setName('pokemon2').setDescription('Second Pokémon').setRequired(true)),
     aliases: [],
 
-    async execute(interaction) {
-        const name1 = interaction.options.getString('pokemon1');
-        const name2 = interaction.options.getString('pokemon2');
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const name1 = isInteraction ? interaction.options.getString('pokemon1') : args?.[0];
+        const name2 = isInteraction ? interaction.options.getString('pokemon2') : args?.[1];
+
+        if (!name1 || !name2) {
+            return interaction.reply({
+                components: [errorContainer('Missing Pokémon', 'Specify two Pokémon to compare: `!compare <pokemon1> <pokemon2>`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        const userId = await accountStore.resolveUserId(author.id);
 
         const p1 = await pokemonStore.getPokemonDetails(userId, name1);
         const p2 = await pokemonStore.getPokemonDetails(userId, name2);

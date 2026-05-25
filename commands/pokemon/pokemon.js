@@ -26,11 +26,21 @@ module.exports = {
         ),
     aliases: ['pokedex', 'pokelist'],
 
-    async execute(interaction) {
-        const detailName = interaction.options?.getString?.('details');
-        const targetUser = interaction.options?.getUser?.('user') || interaction.user;
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const targetUser = isInteraction ? (interaction.options?.getUser?.('user') || author) : (interaction.mentions?.users?.first() || author);
         const userId = await accountStore.resolveUserId(targetUser.id);
-        const isSelf = targetUser.id === interaction.user.id;
+        const isSelf = targetUser.id === author.id;
+
+        let detailName = null;
+        if (isInteraction) {
+            detailName = interaction.options?.getString?.('details');
+        } else if (args && args.length > 0) {
+            if (!args[0].startsWith('<@') && !args[0].endsWith('>')) {
+                detailName = args.join(' ');
+            }
+        }
 
         // ─── Detail View ───
         if (detailName) {

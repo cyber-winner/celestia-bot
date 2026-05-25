@@ -13,10 +13,12 @@ module.exports = {
         .addStringOption(opt => opt.setName('name').setDescription('Name of the Pokémon').setRequired(true)),
     aliases: [],
 
-    async execute(interaction) {
-        const guessedName = interaction.options.getString('name');
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const guessedName = isInteraction ? interaction.options.getString('name') : args.join(' ');
         const channelId = interaction.channelId;
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+        const userId = await accountStore.resolveUserId(author.id);
 
         // ─── Case 1: Check for summoned spawn first ───
         const summonedSpawn = pokemonStore.getSummonedSpawn(channelId);
@@ -52,7 +54,7 @@ module.exports = {
 
             container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
 
-            let statsText = `👤 **Trainer:** ${interaction.user.username}\n`;
+            let statsText = `👤 **Trainer:** ${author.username}\n`;
             statsText += `🏷️ **Pokémon:** ${p.name}\n`;
             statsText += `📊 **Level:** ${p.level} — ${rankBadge}\n`;
             statsText += `⭐ **Rarity:** ${rarityTag}\n`;

@@ -9,8 +9,11 @@ module.exports = {
         .setDescription('View the top Pokémon trainers leaderboard'),
     aliases: ['trainerboard', 'leaderboard'],
 
-    async execute(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        if (isInteraction) {
+            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+        }
 
         const leaderboard = await pokemonStore.getTrainerLeaderboard();
 
@@ -22,7 +25,11 @@ module.exports = {
                         `## 🏆 Trainer Leaderboard\n\n> No trainers yet! Be the first!`
                     )
                 );
-            return interaction.editReply({ components: [container] });
+            if (isInteraction) {
+                return interaction.editReply({ components: [container] });
+            } else {
+                return interaction.reply({ components: [container] });
+            }
         }
 
         let boardText = '';
@@ -42,6 +49,10 @@ module.exports = {
             .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Score = (Unique × 150) + (Caught × 35) + (Best Lv × 10) + Avg Lv`));
 
-        await interaction.editReply({ components: [container] });
+        if (isInteraction) {
+            await interaction.editReply({ components: [container] });
+        } else {
+            await interaction.reply({ components: [container] });
+        }
     },
 };

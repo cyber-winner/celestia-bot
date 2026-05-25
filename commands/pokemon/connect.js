@@ -18,15 +18,28 @@ module.exports = {
         ),
     aliases: [],
 
-    async execute(interaction) {
-        const sub = interaction.options.getSubcommand();
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+
+        let sub = 'whatsapp';
+        let otp = null;
+
+        if (isInteraction) {
+            sub = interaction.options.getSubcommand();
+            otp = interaction.options.getString('otp');
+        } else if (args && args.length > 0) {
+            if (args[0].toLowerCase() === 'whatsapp') {
+                otp = args[1];
+            } else {
+                otp = args[0];
+            }
+        }
 
         if (sub === 'whatsapp') {
-            const otp = interaction.options.getString('otp');
-
             // ─── Case 1: User has OTP from WhatsApp → complete the link ───
             if (otp) {
-                const result = await accountStore.completeLinkFromDiscord(otp, interaction.user.id, interaction.user.username);
+                const result = await accountStore.completeLinkFromDiscord(otp, author.id, author.username);
                 if (!result.success) {
                     return interaction.reply({
                         components: [errorContainer('Invalid OTP',
@@ -42,7 +55,7 @@ module.exports = {
                     .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
                     .addTextDisplayComponents(new TextDisplayBuilder().setContent(
                         `✅ **Successfully linked!**\n\n` +
-                        `🎮 **Discord:** ${interaction.user.username}\n` +
+                        `🎮 **Discord:** ${author.username}\n` +
                         `📱 **WhatsApp:** Connected\n` +
                         `🏷️ **Display Name:** ${result.displayName}\n\n` +
                         `> Your progress is now synced across both platforms!\n` +
@@ -53,7 +66,7 @@ module.exports = {
             }
 
             // ─── Case 2: Generate OTP for Discord → WhatsApp linking ───
-            const result = await accountStore.initiateDiscordLink(interaction.user.id, interaction.user.username);
+            const result = await accountStore.initiateDiscordLink(author.id, author.username);
             if (!result.success) {
                 if (result.reason === 'already_linked') {
                     return interaction.reply({

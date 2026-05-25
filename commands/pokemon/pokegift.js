@@ -14,14 +14,31 @@ module.exports = {
         .addStringOption(opt => opt.setName('pokemon').setDescription('Pokémon name to gift').setRequired(true)),
     aliases: ['gift'],
 
-    async execute(interaction) {
-        const targetUser = interaction.options.getUser('user');
-        const pokemonName = interaction.options.getString('pokemon');
-        if (targetUser.id === interaction.user.id) {
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const targetUser = isInteraction ? interaction.options.getUser('user') : interaction.mentions?.users?.first();
+
+        let pokemonName = null;
+        if (isInteraction) {
+            pokemonName = interaction.options.getString('pokemon');
+        } else if (args && args.length > 0) {
+            const nonMention = args.find(a => !a.startsWith('<@') && !a.endsWith('>'));
+            if (nonMention) pokemonName = nonMention;
+        }
+
+        if (!targetUser || !pokemonName) {
+            return interaction.reply({
+                components: [errorContainer('Invalid Gift', 'Specify a trainer and a Pokémon name: `!pokegift @User <pokemon>`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        if (targetUser.id === author.id) {
             return interaction.reply({ components: [errorContainer('Error', "You can't gift to yourself!")], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
         }
 
-        const fromId = await accountStore.resolveUserId(interaction.user.id);
+        const fromId = await accountStore.resolveUserId(author.id);
         const toId = await accountStore.resolveUserId(targetUser.id);
         const result = await pokemonStore.giftPokemon(fromId, toId, pokemonName);
 
@@ -31,7 +48,7 @@ module.exports = {
 
         const container = successContainer('Gift Sent! 🎁',
             `📦 **${result.pokemon.name}** (Lv. ${result.pokemon.level})\n` +
-            `👤 **From:** ${interaction.user.username}\n` +
+            `👤 **From:** ${author.username}\n` +
             `👤 **To:** ${targetUser.username}\n\n` +
             `> *The Pokémon has been transferred!*`
         );

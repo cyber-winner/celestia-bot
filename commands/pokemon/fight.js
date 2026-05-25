@@ -36,18 +36,41 @@ module.exports = {
         .addStringOption(opt => opt.setName('their_pokemon').setDescription('Their Pokémon to fight').setRequired(true)),
     aliases: ['battle', 'pvp'],
 
-    async execute(interaction) {
-        const opponent = interaction.options.getUser('opponent');
-        const myPokemonName = interaction.options.getString('your_pokemon');
-        const theirPokemonName = interaction.options.getString('their_pokemon');
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
 
-        if (opponent.id === interaction.user.id) {
+        let opponent = null;
+        let myPokemonName = null;
+        let theirPokemonName = null;
+
+        if (isInteraction) {
+            opponent = interaction.options.getUser('opponent');
+            myPokemonName = interaction.options.getString('your_pokemon');
+            theirPokemonName = interaction.options.getString('their_pokemon');
+        } else if (args && args.length > 0) {
+            opponent = interaction.mentions?.users?.first();
+            const nonMentions = args.filter(a => !a.startsWith('<@') && !a.endsWith('>'));
+            myPokemonName = nonMentions[0];
+            theirPokemonName = nonMentions[1];
+        }
+
+        if (!opponent || !myPokemonName || !theirPokemonName) {
+            return interaction.reply({
+                components: [errorContainer('Invalid Battle', 'Specify opponent and both Pokémon: `!fight @opponent <your_pokemon> <their_pokemon>`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        if (opponent.id === author.id) {
             return interaction.reply({ components: [errorContainer('Error', "Can't fight yourself!")], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
         }
 
-        await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+        if (isInteraction) {
+            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+        }
 
-        const myId = await accountStore.resolveUserId(interaction.user.id);
+        const myId = await accountStore.resolveUserId(author.id);
         const theirId = await accountStore.resolveUserId(opponent.id);
 
         const myEntry = await PokemonEntry.findOne({
@@ -60,8 +83,16 @@ module.exports = {
             pokemonName: { $regex: new RegExp(`^${theirPokemonName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
         }).sort({ level: -1 });
 
-        if (!myEntry) return interaction.editReply({ components: [errorContainer('Not Found', `You don't own **${myPokemonName}**!`)] });
-        if (!theirEntry) return interaction.editReply({ components: [errorContainer('Not Found', `**${opponent.username}** doesn't own **${theirPokemonName}**!`)] });
+        if (!myEntry) {
+            const container = errorContainer('Not Found', `You don't own **${myPokemonName}**!`);
+            if (isInteraction) return interaction.editReply({ components: [container] });
+            else return interaction.reply({ components: [container] });
+        }
+        if (!theirEntry) {
+            const container = errorContainer('Not Found', `**${opponent.username}** doesn't own **${theirPokemonName}**!`);
+            if (isInteraction) return interaction.editReply({ components: [container] });
+            else return interaction.reply({ components: [container] });
+        }
 
         const myData = pokemonStore.getStaticData(myEntry.pokemonName) || { hp: 70, baseStats: {}, types: ['Normal'], attacks: [{ name: 'Tackle', power: 40, type: 'Normal' }] };
         const theirData = pokemonStore.getStaticData(theirEntry.pokemonName) || { hp: 70, baseStats: {}, types: ['Normal'], attacks: [{ name: 'Tackle', power: 40, type: 'Normal' }] };
@@ -96,7 +127,7 @@ module.exports = {
         let battleLog = [];
         const first = f1.speed >= f2.speed ? [f1, f2] : [f2, f1];
         const [attacker1, attacker2] = first;
-        const names = { [f1.name]: interaction.user.username, [f2.name]: opponent.username };
+        const names = { [f1.name]: author.username, [f2.name]: opponent.username };
 
         for (let turn = 1; turn <= 50; turn++) {
             for (const [atk, def] of [[attacker1, attacker2], [attacker2, attacker1]]) {
@@ -122,7 +153,7 @@ module.exports = {
             if (f1.hp <= 0 || f2.hp <= 0) break;
         }
 
-        const winner = f1.hp > 0 ? interaction.user : opponent;
+        const winner = f1.hp > 0 ? author : opponent;
         const winnerPkmn = f1.hp > 0 ? f1 : f2;
         const loserPkmn = f1.hp > 0 ? f2 : f1;
 
@@ -143,13 +174,17 @@ module.exports = {
         // Show last 8 log entries
         const recentLog = battleLog.slice(-8).map(l => `> ${l}`).join('\n');
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-            `**${interaction.user.username}**'s ${f1.name} (Lv.${f1.level}) vs **${opponent.username}**'s ${f2.name} (Lv.${f2.level})\n\n` +
+            `**${author.username}**'s ${f1.name} (Lv.${f1.level}) vs **${opponent.username}**'s ${f2.name} (Lv.${f2.level})\n\n` +
             `### Battle Log\n${recentLog}\n\n` +
             `### 🏆 Result\n` +
             `**${winner.username}**'s **${winnerPkmn.name}** wins with ${winnerPkmn.hp}/${winnerPkmn.maxHp} HP remaining!\n` +
             `**${loserPkmn.name}** fainted! 💀`
         ));
 
-        await interaction.editReply({ components: [container] });
+        if (isInteraction) {
+            await interaction.editReply({ components: [container] });
+        } else {
+            await interaction.reply({ components: [container] });
+        }
     },
 };

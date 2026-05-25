@@ -18,14 +18,25 @@ module.exports = {
         .addIntegerOption(opt => opt.setName('price').setDescription('Price to sell at (for sell action)').setRequired(false)),
     aliases: ['mart', 'shop'],
 
-    async execute(interaction) {
-        const action = interaction.options?.getString?.('action');
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const userId = await accountStore.resolveUserId(author.id);
+
+        let action = null;
+        if (isInteraction) {
+            action = interaction.options?.getString?.('action');
+        } else if (args && args.length > 0) {
+            const rawAction = args[0].toLowerCase();
+            if (['buy', 'sell', 'list'].includes(rawAction)) {
+                action = rawAction;
+            }
+        }
 
         if (action === 'buy') {
-            return this.handleBuy(interaction, userId);
+            return this.handleBuy(interaction, userId, args);
         } else if (action === 'sell') {
-            return this.handleSell(interaction, userId);
+            return this.handleSell(interaction, userId, args);
         } else if (action === 'list') {
             return this.handleList(interaction, userId);
         }
@@ -64,9 +75,24 @@ module.exports = {
         await interaction.reply({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
     },
 
-    async handleBuy(interaction, userId) {
-        const itemName = interaction.options?.getString?.('item');
-        const qty = interaction.options?.getInteger?.('quantity') || 1;
+    async handleBuy(interaction, userId, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        let itemName = null;
+        let qty = 1;
+
+        if (isInteraction) {
+            itemName = interaction.options?.getString?.('item');
+            qty = interaction.options?.getInteger?.('quantity') || 1;
+        } else if (args && args.length > 1) {
+            const lastArg = args[args.length - 1];
+            if (!isNaN(lastArg)) {
+                qty = parseInt(lastArg) || 1;
+                itemName = args.slice(1, -1).join(' ');
+            } else {
+                itemName = args.slice(1).join(' ');
+            }
+        }
+
         if (!itemName) return interaction.reply({ components: [errorContainer('Missing Item', 'Specify an item name!\n`/pokemart buy item:pokeball`')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
 
         const itemDetails = economyStore.getItemDetails(itemName);
@@ -90,9 +116,22 @@ module.exports = {
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     },
 
-    async handleSell(interaction, userId) {
-        const pokemonName = interaction.options?.getString?.('pokemon');
-        const price = interaction.options?.getInteger?.('price');
+    async handleSell(interaction, userId, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        let pokemonName = null;
+        let price = null;
+
+        if (isInteraction) {
+            pokemonName = interaction.options?.getString?.('pokemon');
+            price = interaction.options?.getInteger?.('price');
+        } else if (args && args.length > 2) {
+            const lastArg = args[args.length - 1];
+            if (!isNaN(lastArg)) {
+                price = parseInt(lastArg);
+                pokemonName = args.slice(1, -1).join(' ');
+            }
+        }
+
         if (!pokemonName || !price) return interaction.reply({ components: [errorContainer('Missing Info', 'Usage: `/pokemart sell pokemon:<name> price:<amount>`')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
 
         const pokemonStore = require('../../store/pokemonStore');

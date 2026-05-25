@@ -13,8 +13,10 @@ module.exports = {
         .setDescription('Claim your weekly reward (10,000 coins + 50 Pokéballs + 3 Level Orbs)'),
     aliases: [],
 
-    async execute(interaction) {
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const userId = await accountStore.resolveUserId(author.id);
         const result = await economyStore.claimWeekly(userId);
 
         if (!result.success) {

@@ -13,8 +13,10 @@ module.exports = {
         .setDescription('Claim your daily reward (800 coins + 10 Pokéballs)'),
     aliases: [],
 
-    async execute(interaction) {
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const userId = await accountStore.resolveUserId(author.id);
         const result = await economyStore.claimDaily(userId);
 
         if (!result.success) {

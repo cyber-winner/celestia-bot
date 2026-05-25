@@ -12,8 +12,10 @@ module.exports = {
         .setDescription('View your item inventory'),
     aliases: ['inv', 'items'],
 
-    async execute(interaction) {
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const userId = await accountStore.resolveUserId(author.id);
         const inventory = await economyStore.getInventory(userId);
 
         if (inventory.items.length === 0) {

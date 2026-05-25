@@ -21,14 +21,23 @@ module.exports = {
             .addStringOption(opt => opt.setName('pokemon').setDescription('Your fighter Pokémon').setRequired(true))),
     aliases: [],
 
-    async execute(interaction) {
-        const sub = interaction.options.getSubcommand();
-        const userId = await accountStore.resolveUserId(interaction.user.id);
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const userId = await accountStore.resolveUserId(author.id);
+
+        let sub = 'status';
+        if (isInteraction) {
+            sub = interaction.options.getSubcommand();
+        } else if (args && args[0]) {
+            const rawSub = args[0].toLowerCase();
+            if (rawSub === 'status' || rawSub === 'enter') sub = rawSub;
+        }
 
         if (sub === 'status') {
             return this.showStatus(interaction);
         } else if (sub === 'enter') {
-            return this.enterRaid(interaction, userId);
+            return this.enterRaid(interaction, userId, args);
         }
     },
 
@@ -85,8 +94,17 @@ module.exports = {
         await interaction.reply({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
     },
 
-    async enterRaid(interaction, userId) {
-        const pokemonName = interaction.options.getString('pokemon');
+    async enterRaid(interaction, userId, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const pokemonName = isInteraction ? interaction.options.getString('pokemon') : args.slice(1).join(' ');
+
+        if (!pokemonName) {
+            return interaction.reply({
+                components: [errorContainer('Missing Pokémon', 'Specify which Pokémon you want to enter: `!raid enter <pokemon>`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
 
         // Check if raid is active
         const raidDoc = await ActiveRaid.findOne({});
@@ -141,7 +159,7 @@ module.exports = {
         const scale = (base, lvl) => Math.floor(base * (1 + lvl / 50));
         const maxHp = scale(parseInt(pkmnData.hp || 70), ownedPokemon.level);
 
-        const displayName = `${interaction.user.username} [Discord]`;
+        const displayName = `${author.username} [Discord]`;
 
         // Add to raid
         raidDoc.participants.push({
@@ -168,7 +186,7 @@ module.exports = {
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🎟️ Raid Entry Accepted!`))
             .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-                `👤 **Trainer:** ${interaction.user.username}\n` +
+                `👤 **Trainer:** ${author.username}\n` +
                 `⚔️ **Fighter:** ${ownedPokemon.pokemonName} (Lv. ${ownedPokemon.level})\n` +
                 `❤️ **HP:** ${maxHp}\n\n` +
                 `> You've joined the Global Co-op Raid!\n> Use \`/raid status\` to check progress.`

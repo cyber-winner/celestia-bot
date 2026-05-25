@@ -18,10 +18,12 @@ module.exports = {
         ),
     aliases: ['bal', 'wallet'],
 
-    async execute(interaction) {
-        const targetUser = interaction.options?.getUser?.('user') || interaction.user;
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const targetUser = isInteraction ? (interaction.options?.getUser?.('user') || author) : (interaction.mentions?.users?.first() || author);
         const userId = await accountStore.resolveUserId(targetUser.id);
-        const isSelf = targetUser.id === interaction.user.id;
+        const isSelf = targetUser.id === author.id;
 
         const balance = await economyStore.getBalance(userId);
         const inventory = await economyStore.getInventory(userId);

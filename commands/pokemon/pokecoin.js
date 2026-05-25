@@ -14,14 +14,31 @@ module.exports = {
         .addIntegerOption(opt => opt.setName('amount').setDescription('Amount of coins').setRequired(true).setMinValue(1)),
     aliases: ['sendcoins', 'transfer'],
 
-    async execute(interaction) {
-        const targetUser = interaction.options.getUser('user');
-        const amount = interaction.options.getInteger('amount');
-        if (targetUser.id === interaction.user.id) {
+    async execute(interaction, client, args) {
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const author = isInteraction ? interaction.user : interaction.author;
+        const targetUser = isInteraction ? interaction.options.getUser('user') : interaction.mentions?.users?.first();
+
+        let amount = null;
+        if (isInteraction) {
+            amount = interaction.options.getInteger('amount');
+        } else if (args && args.length > 0) {
+            const num = args.find(a => !isNaN(a) && a.trim() !== '');
+            if (num) amount = parseInt(num);
+        }
+
+        if (!targetUser || !amount || amount <= 0) {
+            return interaction.reply({
+                components: [errorContainer('Invalid Transfer', 'Specify a trainer and a valid amount: `!pokecoin @User <amount>`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        if (targetUser.id === author.id) {
             return interaction.reply({ components: [errorContainer('Error', "You can't send coins to yourself!")], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
         }
 
-        const fromId = await accountStore.resolveUserId(interaction.user.id);
+        const fromId = await accountStore.resolveUserId(author.id);
         const toId = await accountStore.resolveUserId(targetUser.id);
         const result = await economyStore.transferCoins(fromId, toId, amount);
 
@@ -32,7 +49,7 @@ module.exports = {
 
         const container = successContainer('Coins Transferred! 💸',
             `🪙 **${amount.toLocaleString()} PokéCoins**\n` +
-            `👤 **From:** ${interaction.user.username} (${result.fromBalance.toLocaleString()} remaining)\n` +
+            `👤 **From:** ${author.username} (${result.fromBalance.toLocaleString()} remaining)\n` +
             `👤 **To:** ${targetUser.username}`
         );
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
