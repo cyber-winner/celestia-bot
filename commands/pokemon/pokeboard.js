@@ -26,9 +26,9 @@ module.exports = {
                     )
                 );
             if (isInteraction) {
-                return interaction.editReply({ components: [container] });
+                return interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
             } else {
-                return interaction.reply({ components: [container] });
+                return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
             }
         }
 
@@ -50,9 +50,9 @@ module.exports = {
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Score = (Unique × 150) + (Caught × 35) + (Best Lv × 10) + Avg Lv`));
 
         if (isInteraction) {
-            await interaction.editReply({ components: [container] });
+            await interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         } else {
-            await interaction.reply({ components: [container] });
+            await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
     },
 };

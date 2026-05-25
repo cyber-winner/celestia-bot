@@ -91,7 +91,12 @@ module.exports = {
             new ButtonBuilder().setCustomId('raid_refresh').setLabel('🔄 Refresh').setStyle(ButtonStyle.Secondary),
         );
 
-        await interaction.reply({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
+        const replyPayload = { components: [container, row], flags: MessageFlags.IsComponentsV2 };
+        if (interaction.replied || interaction.deferred) {
+            await interaction.editReply(replyPayload);
+        } else {
+            await interaction.reply(replyPayload);
+        }
     },
 
     async enterRaid(interaction, userId, args) {
@@ -161,8 +166,8 @@ module.exports = {
 
         const displayName = `${author.username} [Discord]`;
 
-        // Add to raid
-        raidDoc.participants.push({
+        // Add to raid via atomic push to prevent cross-platform race conditions
+        const newParticipant = {
             userId,
             senderName: displayName,
             pokemonName: ownedPokemon.pokemonName,
@@ -179,8 +184,9 @@ module.exports = {
                 types: pkmnData.types || ['Normal'],
                 attacks: pkmnData.attacks || [{ name: 'Tackle', power: 40, type: 'Normal' }],
             },
-        });
-        await raidDoc.save();
+        };
+
+        await ActiveRaid.findOneAndUpdate({}, { $push: { participants: newParticipant } });
 
         const container = new ContainerBuilder().setAccentColor(COLORS.SUCCESS)
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🎟️ Raid Entry Accepted!`))

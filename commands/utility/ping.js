@@ -16,7 +16,10 @@ module.exports = {
         .setDescription('Check the bot\'s latency and status.'),
     aliases: ['ping'],
     async execute(interaction, client) {
-        await interaction.deferReply();
+        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        if (isInteraction) {
+            await interaction.deferReply();
+        }
 
         const start = Date.now();
         const wsLatency = client.ws.ping;
@@ -71,9 +74,15 @@ module.exports = {
                 new TextDisplayBuilder().setContent(`-# 🤖 ${client.user.username}  •  discord.js v14`)
             );
 
-        return await interaction.editReply({
+        const payload = {
             components: [container],
             flags: MessageFlags.IsComponentsV2
-        });
+        };
+
+        if (isInteraction) {
+            return await interaction.editReply(payload);
+        } else {
+            return await interaction.reply(payload);
+        }
     },
 };
