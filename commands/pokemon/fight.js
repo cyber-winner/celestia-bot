@@ -85,13 +85,13 @@ module.exports = {
 
         if (!myEntry) {
             const container = errorContainer('Not Found', `You don't own **${myPokemonName}**!`);
-            if (isInteraction) return interaction.editReply({ components: [container] });
-            else return interaction.reply({ components: [container] });
+            if (isInteraction) return interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            else return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
         if (!theirEntry) {
             const container = errorContainer('Not Found', `**${opponent.username}** doesn't own **${theirPokemonName}**!`);
-            if (isInteraction) return interaction.editReply({ components: [container] });
-            else return interaction.reply({ components: [container] });
+            if (isInteraction) return interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            else return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         const myData = pokemonStore.getStaticData(myEntry.pokemonName) || { hp: 70, baseStats: {}, types: ['Normal'], attacks: [{ name: 'Tackle', power: 40, type: 'Normal' }] };
@@ -182,9 +182,9 @@ module.exports = {
         ));
 
         if (isInteraction) {
-            await interaction.editReply({ components: [container] });
+            await interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         } else {
-            await interaction.reply({ components: [container] });
+            await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
     },
 };

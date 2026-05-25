@@ -9,9 +9,13 @@ const { errorContainer, successContainer } = require('../../utils/componentBuild
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('pokecoin')
-        .setDescription('Transfer PokéCoins to another trainer')
-        .addUserOption(opt => opt.setName('user').setDescription('Who to send coins to').setRequired(true))
-        .addIntegerOption(opt => opt.setName('amount').setDescription('Amount of coins').setRequired(true).setMinValue(1)),
+        .setDescription('Manage your PokéCoins')
+        .addSubcommand(sub => 
+            sub.setName('share')
+                .setDescription('Transfer PokéCoins to another trainer')
+                .addUserOption(opt => opt.setName('user').setDescription('Who to send coins to').setRequired(true))
+                .addIntegerOption(opt => opt.setName('amount').setDescription('Amount of coins').setRequired(true).setMinValue(1))
+        ),
     aliases: ['sendcoins', 'transfer'],
 
     async execute(interaction, client, args) {
@@ -21,6 +25,10 @@ module.exports = {
 
         let amount = null;
         if (isInteraction) {
+            const subcommand = interaction.options.getSubcommand(false);
+            if (subcommand !== 'share') {
+                return interaction.reply({ content: 'Invalid subcommand.', ephemeral: true });
+            }
             amount = interaction.options.getInteger('amount');
         } else if (args && args.length > 0) {
             const num = args.find(a => !isNaN(a) && a.trim() !== '');

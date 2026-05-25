@@ -28,9 +28,9 @@ module.exports = {
             const container = new ContainerBuilder().setAccentColor(COLORS.WARNING)
                 .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 💰 No data yet!`));
             if (isInteraction) {
-                return interaction.editReply({ components: [container] });
+                return interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
             } else {
-                return interaction.reply({ components: [container] });
+                return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
             }
         }
 
@@ -56,9 +56,9 @@ module.exports = {
         );
 
         if (isInteraction) {
-            await interaction.editReply({ components: [container, row] });
+            await interaction.editReply({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
         } else {
-            await interaction.reply({ components: [container, row] });
+            await interaction.reply({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
         }
     },
 
@@ -90,6 +90,6 @@ module.exports = {
             new ButtonBuilder().setCustomId('baltop_crystals').setLabel('Crystals').setEmoji('💎').setStyle(isCrystals ? ButtonStyle.Primary : ButtonStyle.Secondary),
         );
 
-        await interaction.editReply({ components: [container, row] });
+        await interaction.editReply({ components: [container, row], flags: MessageFlags.IsComponentsV2 });
     },
 };

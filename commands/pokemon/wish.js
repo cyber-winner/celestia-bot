@@ -15,7 +15,7 @@ module.exports = {
         .addIntegerOption(opt =>
             opt.setName('count').setDescription('Number of wishes (1-10)').setRequired(false).setMinValue(1).setMaxValue(10)
         ),
-    aliases: ['gacha', 'pull'],
+    aliases: ['pull'],
 
     async execute(interaction, client, args) {
         const isInteractionObj = !!interaction.user;
@@ -99,20 +99,48 @@ module.exports = {
 
         // Results text
         let resultsText = '';
+        let threeStarCount = 0;
+        for (const r of results) {
+            if (r.rarity === 3) threeStarCount++;
+        }
+
+        if (threeStarCount > 0) {
+            resultsText += `### 🔮 3★ Results\n> **Level Orb ×${threeStarCount}** added to your bag!\n\n`;
+        }
+
         for (const r of results) {
             if (r.rarity === 5) {
-                const stars = '⭐⭐⭐⭐⭐';
-                const featuredTag = r.isFeatured ? '🎯 **FEATURED**' : '🔮 Standard';
-                resultsText += `${stars} **${r.pokemonName}** — ${featuredTag}`;
-                if (r.isVariant) resultsText += ' 💫 Variant';
-                resultsText += `\n> Lv. 100 · ${r.isFeatured ? 'Won 50/50!' : 'Lost 50/50'} · Pity: ${r.pityCount}\n\n`;
+                const stats = r.doubledStats;
+                const variantTag = r.isVariant ? '🏆 **FEATURED VARIANT**' : '🔹 **STANDARD BASE FORM**';
+                
+                resultsText += `### ⭐⭐⭐⭐⭐ 5-STAR PULL!\n` +
+                    `🏷️ **Pokémon:** ${r.pokemonName}\n` +
+                    `${variantTag}\n` +
+                    `📊 **Level:** ✨ 100 (MAX)\n` +
+                    `🔖 **Type:** ${(r.types || []).join(' / ')}\n\n` +
+                    `⚔️ **GACHA BOOSTED STATS (2× MAX):**\n` +
+                    `* ❤️ HP: ${stats.hp} | ⚔️ ATK: ${stats.atk} | 🛡️ DEF: ${stats.def}\n` +
+                    `* 🔮 SP.ATK: ${stats.spAtk} | 🔰 SP.DEF: ${stats.spDef} | 💨 SPEED: ${stats.speed}\n\n` +
+                    `🎯 **Pity Count:** Pull #${r.pityCount}\n`;
+                
+                if (r.isFeatured) {
+                    resultsText += `> 🏆 *You won the 50/50 and pulled the Variant Pokémon! Next 5★ is a coin flip again.*\n\n`;
+                } else {
+                    resultsText += `> 🔄 *Lost the 50/50 and pulled the Standard Base Pokémon! Next 5★ is GUARANTEED to be a Variant Pokémon next time!* 🎯\n\n`;
+                }
             } else if (r.rarity === 4) {
-                const stars = '⭐⭐⭐⭐';
-                resultsText += `${stars} **${r.pokemonName}**`;
-                if (r.isVariant) resultsText += ' 💫 Variant';
-                resultsText += `\n> Lv. 100 · Pity: ${r.pityCount}\n\n`;
-            } else {
-                resultsText += `⭐⭐⭐ **Level Orb** ×1\n> Added to inventory\n\n`;
+                const stats = r.doubledStats;
+                const variantTag = r.isVariant ? '✨ **VARIANT FORM**' : '🔹 **BASE FORM**';
+                
+                resultsText += `### ⭐⭐⭐⭐ 4-STAR PULL!\n` +
+                    `🏷️ **Pokémon:** ${r.pokemonName}\n` +
+                    `${variantTag}\n` +
+                    `📊 **Level:** ✨ 100 (MAX)\n` +
+                    `🔖 **Type:** ${(r.types || []).join(' / ')}\n\n` +
+                    `⚔️ **GACHA BOOSTED STATS (2× MAX):**\n` +
+                    `* ❤️ HP: ${stats.hp} | ⚔️ ATK: ${stats.atk} | 🛡️ DEF: ${stats.def}\n` +
+                    `* 🔮 SP.ATK: ${stats.spAtk} | 🔰 SP.DEF: ${stats.spDef} | 💨 SPEED: ${stats.speed}\n\n` +
+                    `🎯 **Pity Count:** Pull #${r.pityCount}\n\n`;
             }
         }
 

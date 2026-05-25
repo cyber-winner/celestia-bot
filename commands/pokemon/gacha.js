@@ -105,7 +105,8 @@ module.exports = {
                 `* ⭐ 5★ Rate: **${(current5Rate * 100).toFixed(1)}%**${profile.pity5 >= 73 ? ' 🔥 SOFT PITY!' : ''}\n` +
                 `* 💜 4★ Rate: **${(current4Rate * 100).toFixed(1)}%**${profile.pity4 >= 8 ? ' 🔥 SOFT PITY!' : ''}\n\n` +
                 `### 📊 Lifetime Stats\n` +
-                `* 🎰 Total Wishes: ${profile.totalWishes} · 5★: ${profile.total5Stars} · 4★: ${profile.total4Stars}`
+                `* 🎰 Total Wishes: ${profile.totalWishes} · 5★: ${profile.total5Stars} · 4★: ${profile.total4Stars}\n\n` +
+                `> _All gacha Pokémon are Lv. 100 with 2× boosted stats!_ 🔥`
             ));
 
         const row = new ActionRowBuilder().addComponents(
