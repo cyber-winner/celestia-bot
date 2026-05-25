@@ -3,6 +3,15 @@ const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js'
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
+const connectDB = require('./db/connect');
+
+console.log(`
+╔══════════════════════════════════════════╗
+║        ✨  CELESTIA  Discord Bot         ║
+║              v2.0.0                      ║
+║     Pokémon · Gacha · Cross-Platform     ║
+╚══════════════════════════════════════════╝
+`);
 
 const client = new Client({
     intents: [
@@ -16,27 +25,28 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('MongoDB Connection Error:', err));
-
-
 global.bot = client;
 
+async function start() {
+    // 1. Connect to MongoDB (same DB as WhatsApp bot)
+    await connectDB();
 
-require('./handlers/commandHandler')(client);
-require('./handlers/eventHandler')(client);
+    // 2. Load command and event handlers
+    require('./handlers/commandHandler')(client);
+    require('./handlers/eventHandler')(client);
 
-client.login(process.env.TOKEN).catch(err => {
-    if (err.message.includes('disallowed intents')) {
-        console.error('\u001b[31m[ERROR] Disallowed Intents!\u001b[0m');
-        console.error('Please go to the Discord Developer Portal (https://discord.com/developers/applications)');
-        console.error('and enable the following intents under the "Bot" tab:');
-        console.error('1. Presence Intent');
-        console.error('2. Server Members Intent');
-        console.error('3. Message Content Intent');
-    } else {
-        console.error('Login Error:', err);
-    }
-});
+    // 3. Login
+    client.login(process.env.TOKEN).catch(err => {
+        if (err.message.includes('disallowed intents')) {
+            console.error('\u001b[31m[ERROR] Disallowed Intents!\u001b[0m');
+            console.error('Please enable the following intents in the Discord Developer Portal:');
+            console.error('1. Presence Intent');
+            console.error('2. Server Members Intent');
+            console.error('3. Message Content Intent');
+        } else {
+            console.error('Login Error:', err);
+        }
+    });
+}
+
+start();

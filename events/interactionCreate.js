@@ -29,8 +29,65 @@ module.exports = {
         }
 
         if (interaction.isButton()) {
+            const customId = interaction.customId;
 
-            if (interaction.customId === 'ticket_info') {
+            // ─── Pokemon Collection Pagination ───
+            if (customId.startsWith('pkmn_') || customId.startsWith('pkdet_')) {
+                try {
+                    const pokemonCmd = require('../commands/pokemon/pokemon');
+                    await pokemonCmd.handleButton(interaction);
+                } catch (err) {
+                    console.error('[Pokemon Button]', err);
+                }
+                return;
+            }
+
+            // ─── PokéMart Quick Buy Buttons ───
+            if (customId.startsWith('mart_buy_')) {
+                try {
+                    const martCmd = require('../commands/pokemon/pokemart');
+                    await martCmd.handleButton(interaction);
+                } catch (err) {
+                    console.error('[Mart Button]', err);
+                }
+                return;
+            }
+
+            // ─── Wish Again Buttons ───
+            if (customId.startsWith('wish_')) {
+                try {
+                    const wishCmd = require('../commands/pokemon/wish');
+                    await wishCmd.handleButton(interaction);
+                } catch (err) {
+                    console.error('[Wish Button]', err);
+                }
+                return;
+            }
+
+            // ─── Balance Top Toggle ───
+            if (customId.startsWith('baltop_')) {
+                try {
+                    const baltopCmd = require('../commands/pokemon/baltop');
+                    await baltopCmd.handleButton(interaction);
+                } catch (err) {
+                    console.error('[Baltop Button]', err);
+                }
+                return;
+            }
+
+            // ─── Raid Buttons ───
+            if (customId.startsWith('raid_')) {
+                try {
+                    const raidCmd = require('../commands/pokemon/raid');
+                    await raidCmd.handleButton(interaction);
+                } catch (err) {
+                    console.error('[Raid Button]', err);
+                }
+                return;
+            }
+
+            // ─── Ticket System ───
+            if (customId === 'ticket_info') {
                 const container = new ContainerBuilder()
                     .setAccentColor(0x2ecc71)
                     .addTextDisplayComponents(
@@ -50,12 +107,12 @@ module.exports = {
                 return;
             }
 
-            if (interaction.customId === 'open_ticket') {
+            if (customId === 'open_ticket') {
                 await interaction.reply({ content: '> 📩 Your ticket is being created... A staff member will be with you shortly.', flags: MessageFlags.Ephemeral }).catch(() => { });
                 return;
             }
 
-            if (interaction.customId.startsWith('hentai_img:')) {
+            if (customId.startsWith('hentai_img:')) {
                 if (!interaction.channel.nsfw) return interaction.reply({ content: '> 🔞 NSFW channels only!', flags: MessageFlags.Ephemeral });
                 await interaction.deferUpdate().catch(() => { });
                 const hentaiCmd = require('../commands/nsfw/hentai');
@@ -63,7 +120,7 @@ module.exports = {
                 return;
             }
 
-            if (interaction.customId.startsWith('hentai_vid:')) {
+            if (customId.startsWith('hentai_vid:')) {
                 if (!interaction.channel.nsfw) return interaction.reply({ content: '> 🔞 NSFW channels only!', flags: MessageFlags.Ephemeral });
                 await interaction.deferUpdate().catch(() => { });
                 const hentaiCmd = require('../commands/nsfw/hentai');
@@ -71,7 +128,7 @@ module.exports = {
                 return;
             }
 
-            if (interaction.customId.startsWith('porn_img:')) {
+            if (customId.startsWith('porn_img:')) {
                 if (!interaction.channel.nsfw) return interaction.reply({ content: '> 🔞 NSFW channels only!', flags: MessageFlags.Ephemeral });
                 await interaction.deferUpdate().catch(() => { });
                 const pornCmd = require('../commands/nsfw/porn');
@@ -79,7 +136,7 @@ module.exports = {
                 return;
             }
 
-            if (interaction.customId.startsWith('porn_vid:')) {
+            if (customId.startsWith('porn_vid:')) {
                 if (!interaction.channel.nsfw) return interaction.reply({ content: '> 🔞 NSFW channels only!', flags: MessageFlags.Ephemeral });
                 await interaction.deferUpdate().catch(() => { });
                 const pornCmd = require('../commands/nsfw/porn');
@@ -87,12 +144,11 @@ module.exports = {
                 return;
             }
 
-            
             return;
         }
 
         if (interaction.isStringSelectMenu()) {
-            
+
             return;
         }
     },

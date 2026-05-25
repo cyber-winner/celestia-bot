@@ -1,0 +1,84 @@
+/**
+ * /baltop — Richest players leaderboard.
+ */
+const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const economyStore = require('../../store/economyStore');
+const accountStore = require('../../store/accountStore');
+const { COLORS } = require('../../utils/componentBuilder');
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('baltop')
+        .setDescription('View the richest trainers leaderboard')
+        .addStringOption(opt => opt.setName('type').setDescription('coins or crystals').setRequired(false)
+            .addChoices({ name: 'PokéCoins', value: 'coins' }, { name: 'Radiant Crystals', value: 'crystals' })),
+    aliases: ['richest'],
+
+    async execute(interaction) {
+        await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+
+        const type = interaction.options?.getString?.('type') || 'coins';
+        const isCrystals = type === 'crystals';
+        const top = isCrystals ? await economyStore.getCrystalTop(10) : await economyStore.getBalTop(10);
+
+        if (top.length === 0) {
+            const container = new ContainerBuilder().setAccentColor(COLORS.WARNING)
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 💰 No data yet!`));
+            return interaction.editReply({ components: [container] });
+        }
+
+        let boardText = '';
+        for (let i = 0; i < top.length; i++) {
+            const w = top[i];
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
+            const name = await accountStore.getLeaderboardName(w.userId);
+            const val = isCrystals ? (w.radiantCrystals || 0) : w.pokecoins;
+            const icon = isCrystals ? '💎' : '🪙';
+            boardText += `${medal} **${name}** — ${icon} **${val.toLocaleString()}**\n`;
+        }
+
+        const title = isCrystals ? '💎 Radiant Crystal Leaderboard' : '💰 Richest Trainers';
+        const container = new ContainerBuilder().setAccentColor(isCrystals ? COLORS.CRYSTAL : COLORS.GOLD)
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ${title}`))
+            .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(boardText));
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('baltop_coins').setLabel('PokéCoins').setEmoji('🪙').setStyle(isCrystals ? ButtonStyle.Secondary : ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('baltop_crystals').setLabel('Crystals').setEmoji('💎').setStyle(isCrystals ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        );
+
+        await interaction.editReply({ components: [container, row] });
+    },
+
+    async handleButton(interaction) {
+        const type = interaction.customId === 'baltop_crystals' ? 'crystals' : 'coins';
+        interaction.options = { getString: () => type, getInteger: () => null, getUser: () => null };
+        await interaction.deferUpdate();
+        const isCrystals = type === 'crystals';
+        const top = isCrystals ? await economyStore.getCrystalTop(10) : await economyStore.getBalTop(10);
+
+        let boardText = '';
+        for (let i = 0; i < top.length; i++) {
+            const w = top[i];
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
+            const name = await accountStore.getLeaderboardName(w.userId);
+            const val = isCrystals ? (w.radiantCrystals || 0) : w.pokecoins;
+            const icon = isCrystals ? '💎' : '🪙';
+            boardText += `${medal} **${name}** — ${icon} **${val.toLocaleString()}**\n`;
+        }
+
+        const title = isCrystals ? '💎 Radiant Crystal Leaderboard' : '💰 Richest Trainers';
+        const container = new ContainerBuilder().setAccentColor(isCrystals ? COLORS.CRYSTAL : COLORS.GOLD)
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ${title}`))
+            .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(boardText));
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('baltop_coins').setLabel('PokéCoins').setEmoji('🪙').setStyle(isCrystals ? ButtonStyle.Secondary : ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('baltop_crystals').setLabel('Crystals').setEmoji('💎').setStyle(isCrystals ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        );
+
+        await interaction.editReply({ components: [container, row] });
+    },
+};
