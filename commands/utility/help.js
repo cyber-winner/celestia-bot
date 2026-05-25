@@ -59,7 +59,7 @@ const CATEGORIES = {
         tagline: 'Gacha wishing, card collections, and PvP battles',
         description: 'Catch wild spawns, build a card collection, level up/use items, test your luck on wishing banners, and battle other trainers.',
         color: 0xffcb05,
-        thumbnail: 'https://cdn.discordapp.com/emojis/1351735500800655372.webp?size=32'
+        thumbnail: 'https://media.tenor.com/J64zKaGj1IYAAAAi/cute-pokemon.gif'
     }
 };
 
@@ -105,7 +105,7 @@ module.exports = {
 
         const totalCommands = activeCategories.reduce((sum, c) => sum + c.cmds.length, 0);
 
-        
+
         const buildDropdownRow = (selectedKey = 'overview') => {
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId('help_select')
@@ -134,7 +134,7 @@ module.exports = {
             return new ActionRowBuilder().addComponents(selectMenu);
         };
 
-        
+
         const buildPaginationRow = (categoryKey, page) => {
             const moduleData = activeCategories.find(c => c.key === categoryKey);
             const maxPages = moduleData ? Math.ceil(moduleData.cmds.length / ITEMS_PER_PAGE) : 1;
@@ -170,22 +170,22 @@ module.exports = {
             );
         };
 
-        
-        
-        
-        
+
+
+
+
         const buildOverviewContainer = () => {
             const container = new ContainerBuilder()
                 .setAccentColor(0x5865f2)
-                
+
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(`# ✨ Celestia`)
                 )
-                
+
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
-                
+
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
@@ -199,12 +199,12 @@ module.exports = {
                             new ThumbnailBuilder().setURL(OVERVIEW_THUMBNAIL)
                         )
                 )
-                
+
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 );
 
-            
+
             for (const { key, meta, cmds } of activeCategories) {
                 container.addSectionComponents(
                     new SectionBuilder()
@@ -227,7 +227,7 @@ module.exports = {
                 );
             }
 
-            
+
             container.addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             );
@@ -237,16 +237,16 @@ module.exports = {
                 )
             );
 
-            
+
             container.addActionRowComponents(buildDropdownRow('overview'));
 
             return container;
         };
 
-        
-        
-        
-        
+
+
+
+
         const buildModuleContainer = (categoryKey, page = 0) => {
             const moduleData = activeCategories.find(c => c.key === categoryKey);
             if (!moduleData) return buildOverviewContainer();
@@ -264,15 +264,15 @@ module.exports = {
 
             const container = new ContainerBuilder()
                 .setAccentColor(meta.color)
-                
+
                 .addTextDisplayComponents(
                     new TextDisplayBuilder().setContent(`# ${meta.emoji} ${meta.name}`)
                 )
-                
+
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 )
-                
+
                 .addSectionComponents(
                     new SectionBuilder()
                         .addTextDisplayComponents(
@@ -285,12 +285,12 @@ module.exports = {
                             new ThumbnailBuilder().setURL(meta.thumbnail || OVERVIEW_THUMBNAIL)
                         )
                 )
-                
+
                 .addSeparatorComponents(
                     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
                 );
 
-            
+
             pageCmds.forEach(cmd => {
                 const name = cmd.data?.name || 'unknown';
                 const desc = cmd.data?.description || 'No description available.';
@@ -309,22 +309,22 @@ module.exports = {
                 );
             });
 
-            
+
             container.addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             );
 
-            
+
             container.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
                     `-# 📄 Page ${page + 1} of ${maxPages}  •  ${allCmds.length} commands in ${meta.name}`
                 )
             );
 
-            
+
             container.addActionRowComponents(buildDropdownRow(categoryKey));
 
-            
+
             const paginationRow = buildPaginationRow(categoryKey, page);
             if (paginationRow) {
                 container.addActionRowComponents(paginationRow);
@@ -334,7 +334,7 @@ module.exports = {
         };
 
 
-        
+
         const requestedModule = isInteraction ? interaction.options.getString('module') : (args?.[0]?.toLowerCase());
 
         let currentState = 'overview';
@@ -352,7 +352,7 @@ module.exports = {
             withResponse: true
         });
 
-        
+
         const message = response.resource?.message;
         if (!message) return;
 
@@ -369,12 +369,12 @@ module.exports = {
             } else if (i.componentType === ComponentType.Button) {
                 const cid = i.customId;
 
-                
+
                 if (cid.startsWith('help_browse_')) {
                     currentState = cid.replace('help_browse_', '');
                     currentPage = 0;
                 } else {
-                    
+
                     const parts = cid.split('_');
                     currentState = parts[2];
                     currentPage = parseInt(parts[3], 10) || 0;
@@ -397,11 +397,11 @@ module.exports = {
                     ? buildOverviewContainer()
                     : buildModuleContainer(currentState, currentPage);
 
-                
+
                 if (finalContainer.data?.components) {
                     finalContainer.data.components = finalContainer.data.components.filter(c => {
                         const t = c.type ?? c.data?.type;
-                        return t !== 1; 
+                        return t !== 1;
                     });
                 }
 
