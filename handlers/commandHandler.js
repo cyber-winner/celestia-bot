@@ -20,7 +20,9 @@ module.exports = (client) => {
             const command = require(filePath);
 
             if ('data' in command && 'execute' in command) {
-                
+                if (!command.category) {
+                    command.category = folder;
+                }
                 client.commands.set(command.data.name, command);
                 client.slashCommands.push(command.data.toJSON());
 

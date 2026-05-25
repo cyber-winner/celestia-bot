@@ -52,6 +52,14 @@ const CATEGORIES = {
         color: 0xe91e63,
         nsfwOnly: true,
         thumbnail: 'https://i0.nekobot.xyz/4/a/2/8686ef170472b4c0da59b0eebaf76.png'
+    },
+    pokemon: {
+        name: 'Pokémon & Gacha',
+        emoji: '🪙',
+        tagline: 'Gacha wishing, card collections, and PvP battles',
+        description: 'Catch wild spawns, build a card collection, level up/use items, test your luck on wishing banners, and battle other trainers.',
+        color: 0xffcb05,
+        thumbnail: 'https://cdn.discordapp.com/emojis/1351735500800655372.webp?size=32'
     }
 };
 
@@ -69,7 +77,8 @@ module.exports = {
                     { name: '🎉 Fun & Social', value: 'fun' },
                     { name: '🛡️ Moderation', value: 'moderation' },
                     { name: '🔧 Utility Core', value: 'utility' },
-                    { name: '🔞 NSFW Hub', value: 'nsfw' }
+                    { name: '🔞 NSFW Hub', value: 'nsfw' },
+                    { name: '🪙 Pokémon & Gacha', value: 'pokemon' }
                 )
         ),
     aliases: ['h', 'commands', 'cmd'],
