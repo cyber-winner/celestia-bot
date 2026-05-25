@@ -21,6 +21,16 @@ module.exports = {
         const isInteractionObj = !!interaction.user;
         const author = isInteractionObj ? interaction.user : interaction.author;
 
+        let subcommand = null;
+        if (!isInteractionObj && args && args.length > 0) {
+            subcommand = args[0].toLowerCase();
+        }
+
+        if (subcommand === 'info' || subcommand === 'banner' || subcommand === 'pity') {
+            const gachaCmd = require('./gacha');
+            return gachaCmd.execute(interaction, client, args);
+        }
+
         let wishCount = 1;
         if (isInteractionObj && typeof interaction.options?.getInteger === 'function') {
             wishCount = interaction.options.getInteger('count') || 1;
@@ -28,7 +38,7 @@ module.exports = {
             wishCount = parseInt(args[0]) || 1;
         }
 
-        if (wishCount < 1) wishCount = 1;
+        if (isNaN(wishCount) || wishCount < 1) wishCount = 1;
         if (wishCount > 10) wishCount = 10;
 
         const userId = await accountStore.resolveUserId(author.id);

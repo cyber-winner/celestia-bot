@@ -1,27 +1,42 @@
 /**
- * /pokemon — View your Pokémon collection with Components V2 pagination.
- * Shows 5 Pokémon per page with detail buttons for each.
+ * /pokemon — View your Pokémon collection, details, sell, or buy Pokémon.
  */
-
 const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags, ThumbnailBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const pokemonStore = require('../../store/pokemonStore');
 const accountStore = require('../../store/accountStore');
-const { COLORS, getRankBadge, getRarityTag, getTypeColor, paginationRow, pokemonDetailContainer, errorContainer } = require('../../utils/componentBuilder');
+const economyStore = require('../../store/economyStore');
+const { COLORS, getRankBadge, getRarityTag, getTypeColor, paginationRow, pokemonDetailContainer, errorContainer, successContainer } = require('../../utils/componentBuilder');
 
 const PER_PAGE = 5;
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('pokemon')
-        .setDescription('View your Pokémon collection')
+        .setDescription('Pokémon commands: list collection, details, sell, or buy')
         .addStringOption(opt =>
-            opt.setName('details')
-                .setDescription('View details of a specific Pokémon')
+            opt.setName('action')
+                .setDescription('Select action')
+                .setRequired(false)
+                .addChoices(
+                    { name: 'list', value: 'list' },
+                    { name: 'details', value: 'details' },
+                    { name: 'sell', value: 'sell' },
+                    { name: 'buy', value: 'buy' }
+                )
+        )
+        .addStringOption(opt =>
+            opt.setName('pokemon_name')
+                .setDescription('Pokémon name (for details, sell, or buy)')
                 .setRequired(false)
         )
         .addUserOption(opt =>
             opt.setName('user')
-                .setDescription('View another trainer\'s collection')
+                .setDescription('Target trainer (for list, details, or buy)')
+                .setRequired(false)
+        )
+        .addIntegerOption(opt =>
+            opt.setName('price')
+                .setDescription('Price to list Pokémon for (for sell)')
                 .setRequired(false)
         ),
     aliases: ['pokedex', 'pokelist'],
@@ -29,25 +44,147 @@ module.exports = {
     async execute(interaction, client, args) {
         const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
         const author = isInteraction ? interaction.user : interaction.author;
-        const targetUser = isInteraction ? (interaction.options?.getUser?.('user') || author) : (interaction.mentions?.users?.first() || author);
-        const userId = await accountStore.resolveUserId(targetUser.id);
-        const isSelf = targetUser.id === author.id;
 
-        let detailName = null;
+        let action = 'list';
+        let targetUser = author;
+        let pokemonName = null;
+        let price = null;
+
         if (isInteraction) {
-            detailName = interaction.options?.getString?.('details');
+            action = interaction.options.getString('action') || 'list';
+            targetUser = interaction.options.getUser('user') || author;
+            pokemonName = interaction.options.getString('pokemon_name');
+            price = interaction.options.getInteger('price');
+
+            // Compatibility: if no action is chosen but pokemon_name is given, default to details
+            if (!interaction.options.getString('action') && pokemonName) {
+                action = 'details';
+            }
         } else if (args && args.length > 0) {
-            if (!args[0].startsWith('<@') && !args[0].endsWith('>')) {
-                detailName = args.join(' ');
+            const firstArg = args[0].toLowerCase();
+            if (['sell', 'buy', 'list', 'details', 'detail', 'info'].includes(firstArg)) {
+                action = firstArg;
+                if (action === 'detail' || action === 'info') action = 'details';
+
+                if (action === 'sell') {
+                    if (args.length >= 3) {
+                        price = parseInt(args[1]);
+                        pokemonName = args.slice(2).join(' ').trim();
+                    }
+                } else if (action === 'buy') {
+                    targetUser = interaction.mentions?.users?.first() || author;
+                    const cleanArgs = args.slice(1).filter(a => !a.startsWith('<@') && !a.endsWith('>'));
+                    pokemonName = cleanArgs.join(' ').trim();
+                } else if (action === 'details') {
+                    targetUser = interaction.mentions?.users?.first() || author;
+                    const cleanArgs = args.slice(1).filter(a => !a.startsWith('<@') && !a.endsWith('>'));
+                    pokemonName = cleanArgs.join(' ').trim();
+                } else if (action === 'list') {
+                    targetUser = interaction.mentions?.users?.first() || author;
+                }
+            } else {
+                // If it starts with user mention, list that user's collection
+                if (interaction.mentions?.users?.first()) {
+                    targetUser = interaction.mentions.users.first();
+                    action = 'list';
+                } else {
+                    // Otherwise default to details of that name
+                    action = 'details';
+                    pokemonName = args.join(' ').trim();
+                }
             }
         }
 
-        // ─── Detail View ───
-        if (detailName) {
-            const details = await pokemonStore.getPokemonDetails(userId, detailName);
+        const userId = await accountStore.resolveUserId(targetUser.id);
+        const authorId = await accountStore.resolveUserId(author.id);
+        const isSelf = targetUser.id === author.id;
+
+        // ─── Case 1: Sell Command ───
+        if (action === 'sell') {
+            if (!pokemonName || !price || isNaN(price) || price <= 0) {
+                return interaction.reply({
+                    components: [errorContainer('Invalid Command', 'Usage: `/pokemon action:sell price:<amount> pokemon_name:<name>`\nPrefix: `!pokemon sell <price> <name>`')],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                });
+            }
+
+            const result = await pokemonStore.sellPokemon(authorId, price, pokemonName);
+            if (!result.success) {
+                const msg = result.reason === 'not_owned' ? `You don't own any **${pokemonName}**!` : 'Sale failed.';
+                return interaction.reply({
+                    components: [errorContainer('Listing Failed', msg)],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                });
+            }
+
+            const container = new ContainerBuilder()
+                .setAccentColor(COLORS.SUCCESS)
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🏪 Listed for Sale!`))
+                .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                    `✅ Successfully listed **${result.pokemonName}** (Lv. ${result.level}) for sale!\n\n` +
+                    `💰 **Price:** ${result.price.toLocaleString()} PokéCoins\n\n` +
+                    `-# Other players can now buy it using: \`/pokemon action:buy user:${author.username} pokemon_name:${result.pokemonName}\``
+                ));
+
+            return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+        }
+
+        // ─── Case 2: Buy Command ───
+        if (action === 'buy') {
+            if (isSelf) {
+                return interaction.reply({
+                    components: [errorContainer('Invalid Target', 'You cannot buy your own listings!')],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                });
+            }
+            if (!pokemonName) {
+                return interaction.reply({
+                    components: [errorContainer('Invalid Command', 'Specify the Pokémon name to buy!\nUsage: `/pokemon action:buy user:<seller> pokemon_name:<name>`')],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                });
+            }
+
+            const result = await pokemonStore.buyPokemon(authorId, userId, pokemonName);
+            if (!result.success) {
+                let msg = 'Transaction failed.';
+                if (result.reason === 'listing_not_found') {
+                    msg = `**${targetUser.username}** has no active listing for **${pokemonName}**.`;
+                } else if (result.reason === 'insufficient_coins') {
+                    msg = `Insufficient coins! Cost: **${result.needed.toLocaleString()}**, you have **${result.have.toLocaleString()}**.`;
+                }
+                return interaction.reply({
+                    components: [errorContainer('Purchase Failed', msg)],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                });
+            }
+
+            const container = new ContainerBuilder()
+                .setAccentColor(COLORS.SUCCESS)
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 💸 Marketplace Purchase!`))
+                .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                    `🎉 Successfully bought **${result.pokemonName}** (Lv. ${result.level}) from **${targetUser.username}**!\n\n` +
+                    `💰 **Paid:** ${result.price.toLocaleString()} PokéCoins\n` +
+                    `✨ *The Pokémon has been added to your collection!*`
+                ));
+
+            return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+        }
+
+        // ─── Case 3: Detail View ───
+        if (action === 'details') {
+            if (!pokemonName) {
+                return interaction.reply({
+                    components: [errorContainer('Missing Name', 'Specify the name of the Pokémon details you want to view.')],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                });
+            }
+
+            const details = await pokemonStore.getPokemonDetails(userId, pokemonName);
             if (!details) {
                 return interaction.reply({
-                    components: [errorContainer('Not Found', `${isSelf ? 'You don\'t' : `**${targetUser.username}** doesn't`} own any **${detailName}**.`)],
+                    components: [errorContainer('Not Found', `${isSelf ? 'You don\'t' : `**${targetUser.username}** doesn't`} own any **${pokemonName}**.`)],
                     flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
                 });
             }
@@ -62,11 +199,11 @@ module.exports = {
             });
         }
 
-        // ─── Collection View ───
+        // ─── Case 4: Collection List View ───
         const pokedex = await pokemonStore.getUserPokedex(userId);
         if (pokedex.length === 0) {
             return interaction.reply({
-                components: [errorContainer('Empty Collection', `${isSelf ? 'You haven\'t' : `**${targetUser.username}** hasn't`} caught any Pokémon yet!\n\n> 💡 Pokémon spawn every 25 messages. Type \`celestia catch <name>\` to catch them!`)],
+                components: [errorContainer('Empty Collection', `${isSelf ? 'You haven\'t' : `**${targetUser.username}** hasn't`} caught any Pokémon yet!\n\n> 💡 Pokémon spawn every 25 messages. Catch them with \`celestia catch <name>\`!`)],
                 flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
             });
         }
