@@ -12,6 +12,7 @@ const PokemonEntry = require('../models/Pokemon');
 const PlayerWallet = require('../models/PlayerWallet');
 const GachaProfile = require('../models/GachaProfile');
 const PokemonListing = require('../models/PokemonListing');
+const KnownUser = require('../models/KnownUser');
 const crypto = require('crypto');
 
 /**
@@ -62,7 +63,13 @@ async function getLeaderboardName(userId) {
         }
     }
 
-    // WhatsApp user (phone number) — show masked
+    // WhatsApp user (phone number) — check KnownUser store first
+    try {
+        const known = await KnownUser.findOne({ lid: userId });
+        if (known) return known.name;
+    } catch (e) {}
+
+    // Fallback: WhatsApp user (phone number) — show masked
     return `WA:${userId.slice(-4)}`;
 }
 
