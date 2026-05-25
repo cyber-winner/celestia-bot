@@ -116,8 +116,17 @@ async function completeLink(otp, whatsappId) {
     const oldWhatsappUserId = whatsappId;
     const newUnifiedId = account.unifiedId; // Keep Discord ID as unified
 
-    // Migrate WhatsApp game data to unified ID
-    await migrateGameData(oldWhatsappUserId, newUnifiedId);
+    // Check if this whatsappId already has a LinkedAccount
+    const existing = await LinkedAccount.findOne({ whatsappId });
+    if (existing) {
+        // Merge game data from existing.unifiedId to newUnifiedId
+        await migrateGameData(existing.unifiedId, newUnifiedId);
+        // Delete the old linked account
+        await LinkedAccount.deleteOne({ _id: existing._id });
+    } else {
+        // Migrate raw WhatsApp game data to unified ID
+        await migrateGameData(oldWhatsappUserId, newUnifiedId);
+    }
 
     // Update linked account
     account.whatsappId = whatsappId;
@@ -175,8 +184,17 @@ async function completeLinkFromDiscord(otp, discordId, discordUsername) {
     const oldDiscordUserId = `discord_${discordId}`;
     const newUnifiedId = account.unifiedId; // Keep WhatsApp ID as unified
 
-    // Migrate Discord game data to unified ID
-    await migrateGameData(oldDiscordUserId, newUnifiedId);
+    // Check if this discordId already has a LinkedAccount
+    const existing = await LinkedAccount.findOne({ discordId });
+    if (existing) {
+        // Merge game data from existing.unifiedId to newUnifiedId
+        await migrateGameData(existing.unifiedId, newUnifiedId);
+        // Delete the old linked account
+        await LinkedAccount.deleteOne({ _id: existing._id });
+    } else {
+        // Migrate raw Discord game data to unified ID
+        await migrateGameData(oldDiscordUserId, newUnifiedId);
+    }
 
     // Update linked account
     account.discordId = discordId;
