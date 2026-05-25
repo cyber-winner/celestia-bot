@@ -196,7 +196,10 @@ async function completeLinkFromDiscord(otp, discordId, discordUsername) {
         await migrateGameData(oldDiscordUserId, newUnifiedId);
     }
 
-    // Update linked account
+    // Update linked account and combine display names
+    if (discordUsername && account.displayName && !account.displayName.includes(discordUsername)) {
+        account.displayName = `${account.displayName} / ${discordUsername}`;
+    }
     account.discordId = discordId;
     account.otp = null;
     account.otpExpiry = null;
@@ -258,9 +261,9 @@ async function migrateGameData(fromUserId, toUserId) {
     const toGacha = await GachaProfile.findOne({ userId: toUserId });
 
     if (fromGacha && toGacha) {
-        // Keep higher pity (more progress)
-        toGacha.pity5 = Math.max(toGacha.pity5, fromGacha.pity5);
-        toGacha.pity4 = Math.max(toGacha.pity4, fromGacha.pity4);
+        // Combine pity progress (cap at maximums)
+        toGacha.pity5 = Math.min(90, toGacha.pity5 + fromGacha.pity5);
+        toGacha.pity4 = Math.min(10, toGacha.pity4 + fromGacha.pity4);
         toGacha.guaranteed5 = toGacha.guaranteed5 || fromGacha.guaranteed5;
         toGacha.totalWishes += fromGacha.totalWishes;
         toGacha.total5Stars += fromGacha.total5Stars;
