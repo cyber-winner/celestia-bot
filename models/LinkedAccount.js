@@ -19,7 +19,5 @@ const linkedAccountSchema = new mongoose.Schema({
 });
 
 linkedAccountSchema.index({ otp: 1 });
-linkedAccountSchema.index({ discordId: 1 });
-linkedAccountSchema.index({ whatsappId: 1 });
 
 module.exports = mongoose.model('LinkedAccount', linkedAccountSchema);
