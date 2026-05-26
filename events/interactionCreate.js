@@ -26,6 +26,26 @@ module.exports = {
         if (interaction.isChatInputCommand()) {
             const command = client.commands.get(interaction.commandName);
             if (!command) return;
+
+            // Monkey-patch interaction.reply to automatically route to editReply if already deferred/replied
+            const originalReply = interaction.reply.bind(interaction);
+            interaction.reply = async function (options) {
+                if (interaction.deferred || interaction.replied) {
+                    return await interaction.editReply(options);
+                }
+                return await originalReply(options);
+            };
+
+            // Defer reply immediately so it never times out (3-second window)
+            try {
+                if (!interaction.deferred && !interaction.replied) {
+                    const isEphemeral = (interaction.commandName === 'connect');
+                    await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 | (isEphemeral ? MessageFlags.Ephemeral : 0) });
+                }
+            } catch (err) {
+                logInteractionError(`Auto-Defer /${interaction.commandName}`, err);
+            }
+
             try {
                 await command.execute(interaction, client);
             } catch (error) {
