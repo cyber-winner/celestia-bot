@@ -7,6 +7,16 @@ const economyStore = require('../../store/economyStore');
 const accountStore = require('../../store/accountStore');
 const { COLORS, errorContainer } = require('../../utils/componentBuilder');
 
+async function sendReply(interaction, payload) {
+    if (interaction.replied || interaction.deferred) {
+        return await interaction.editReply(payload).catch(() => {});
+    }
+    if (typeof interaction.reply === 'function') {
+        return await interaction.reply(payload).catch(() => {});
+    }
+    return await interaction.channel.send(payload).catch(() => {});
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('gacha')
@@ -36,6 +46,15 @@ module.exports = {
         } else if (!isInteraction && interaction.content) {
             const cmdName = interaction.content.split(' ')[0].toLowerCase().replace(/^!/, '');
             if (['wish', 'pull'].includes(cmdName)) subcommand = 'wish';
+        }
+
+        // Defer reply immediately for all command interactions to prevent 3s timeout
+        if (isCommand && !interaction.deferred && !interaction.replied) {
+            try {
+                await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+            } catch (err) {
+                console.error('[Gacha Defer Command]', err);
+            }
         }
 
         const banner = gachaStore.getBannerInfo();
@@ -79,7 +98,7 @@ module.exports = {
                 new ButtonBuilder().setCustomId('gacha_view_banner').setLabel('View Active Banner').setStyle(ButtonStyle.Primary).setEmoji('<:compass:1508756257840824340>')
             );
 
-            return interaction.reply({ components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
+            return sendReply(interaction, { components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (subcommand === 'banner') {
@@ -127,7 +146,7 @@ module.exports = {
                 new ButtonBuilder().setCustomId('wish_10').setLabel('Wish ×10').setEmoji('<:compass:1508756257840824340>').setStyle(ButtonStyle.Success)
             );
 
-            return interaction.reply({ components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
+            return sendReply(interaction, { components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (subcommand === 'wish') {
@@ -145,7 +164,7 @@ module.exports = {
             const compassCount = compass?.quantity || 0;
 
             if (compassCount < wishCount) {
-                return interaction.reply({
+                return sendReply(interaction, {
                     components: [errorContainer('Not Enough Compasses',
                         `👤 **${author.username}**, you need **${wishCount}** Wishing Compass${wishCount > 1 ? 'es' : ''} but only have **${compassCount}**.\n\n` +
                         `> <:compass:1508756257840824340> Buy compasses: \`/pokemart buy item:wishing compass\`\n` +
@@ -253,12 +272,21 @@ module.exports = {
                 new ButtonBuilder().setCustomId('wish_10').setLabel('Wish ×10').setEmoji('<:compass:1508756257840824340>').setStyle(ButtonStyle.Success),
             );
 
-            return interaction.reply({ components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
+            return sendReply(interaction, { components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
         }
     },
 
     async handleButton(interaction, client) {
         const id = interaction.customId;
+        if (id === 'gacha_view_banner' || id === 'gacha_view_guide' || id.startsWith('wish_')) {
+            try {
+                if (!interaction.deferred && !interaction.replied) {
+                    await interaction.deferUpdate();
+                }
+            } catch (err) {
+                console.error('[Gacha Defer Button]', err);
+            }
+        }
         if (id === 'gacha_view_banner') {
             interaction.options = { getSubcommand: () => 'banner' };
             await this.execute(interaction, client, []);
