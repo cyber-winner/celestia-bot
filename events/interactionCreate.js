@@ -30,10 +30,17 @@ module.exports = {
             // Monkey-patch interaction.reply to automatically route to editReply if already deferred/replied
             const originalReply = interaction.reply.bind(interaction);
             interaction.reply = async function (options) {
-                if (interaction.deferred || interaction.replied) {
-                    return await interaction.editReply(options);
+                try {
+                    if (interaction.deferred || interaction.replied) {
+                        return await interaction.editReply(options);
+                    }
+                    return await originalReply(options);
+                } catch (err) {
+                    if (err.code === 10062 || err.code === 40060 || err.message?.includes('Unknown Interaction')) {
+                        return; // Safe suppress
+                    }
+                    throw err;
                 }
-                return await originalReply(options);
             };
 
             // Defer reply immediately so it never times out (3-second window)
@@ -50,6 +57,9 @@ module.exports = {
                 await command.execute(interaction, client);
             } catch (error) {
                 logInteractionError(`Command /${interaction.commandName}`, error);
+                if (error && (error.code === 10062 || error.code === 40060 || error.message?.includes('Unknown Interaction'))) {
+                    return; // Don't attempt to reply to expired/competing interactions
+                }
                 const errMsg = { content: '> ❌ There was an error executing this command!', flags: MessageFlags.Ephemeral };
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp(errMsg).catch(() => { });
