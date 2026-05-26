@@ -127,8 +127,8 @@ module.exports = {
             }
 
             // ─── Wish Again ───
-            if (customId.startsWith('wish_')) {
-                try { const gachaCmd = require('../commands/pokemon/gacha'); await gachaCmd.handleButton(interaction); }
+            if (customId.startsWith('wish_') || customId.startsWith('gacha_')) {
+                try { const gachaCmd = require('../commands/pokemon/gacha'); await gachaCmd.handleButton(interaction, client); }
                 catch (err) { console.error('[Wish Button]', err); }
                 return;
             }

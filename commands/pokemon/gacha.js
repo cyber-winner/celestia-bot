@@ -20,12 +20,14 @@ module.exports = {
     aliases: ['wish', 'pull', 'banner', 'banners'],
 
     async execute(interaction, client, args) {
-        const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
-        const author = isInteraction ? interaction.user : interaction.author;
+        const isCommand = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
+        const isButton = typeof interaction.isButton === 'function' && interaction.isButton();
+        const isInteraction = isCommand || isButton;
+        const author = interaction.user || interaction.author;
         const userId = await accountStore.resolveUserId(author.id);
 
         let subcommand = 'banner';
-        if (isInteraction) {
+        if (isCommand || isButton) {
             subcommand = interaction.options.getSubcommand(false) || 'banner';
         } else if (args && args.length > 0) {
             const sub = args[0].toLowerCase();
@@ -255,19 +257,19 @@ module.exports = {
         }
     },
 
-    async handleButton(interaction) {
+    async handleButton(interaction, client) {
         const id = interaction.customId;
         if (id === 'gacha_view_banner') {
             interaction.options = { getSubcommand: () => 'banner' };
-            await this.execute(interaction);
+            await this.execute(interaction, client, []);
         } else if (id === 'gacha_view_guide') {
             interaction.options = { getSubcommand: () => 'info' };
-            await this.execute(interaction);
+            await this.execute(interaction, client, []);
         } else if (id.startsWith('wish_')) {
             const count = parseInt(id.replace('wish_', ''));
             if (!isNaN(count)) {
                 interaction.options = { getSubcommand: () => 'wish', getInteger: (name) => name === 'count' ? count : null, getString: () => null, getUser: () => null };
-                await this.execute(interaction);
+                await this.execute(interaction, client, []);
             }
         }
     }
