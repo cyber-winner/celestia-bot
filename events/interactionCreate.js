@@ -11,6 +11,14 @@ const PokemonEntry = require('../models/Pokemon');
 const ActiveRaid = require('../models/ActiveRaid');
 const { COLORS, getTypeColor, getRankBadge, getRarityTag, errorContainer, successContainer } = require('../utils/componentBuilder');
 
+function logInteractionError(context, err) {
+    if (err && (err.code === 10062 || err.code === 40060 || err.message?.includes('Unknown Interaction') || err.message?.includes('Interaction has already been acknowledged'))) {
+        console.warn(`⚠️ [${context}] Interaction expired or already acknowledged (${err.code || 'timeout'}).`);
+        return;
+    }
+    console.error(`[${context}]`, err);
+}
+
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction, client) {
@@ -21,7 +29,7 @@ module.exports = {
             try {
                 await command.execute(interaction, client);
             } catch (error) {
-                console.error(error);
+                logInteractionError(`Command /${interaction.commandName}`, error);
                 const errMsg = { content: '> ❌ There was an error executing this command!', flags: MessageFlags.Ephemeral };
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp(errMsg).catch(() => { });
@@ -80,7 +88,7 @@ module.exports = {
                 try {
                     const raidCmd = require('../commands/pokemon/raid');
                     await raidCmd.handleButton(interaction);
-                } catch (err) { console.error('[Raid Status]', err); }
+                } catch (err) { logInteractionError('Raid Status', err); }
                 return;
             }
 
@@ -103,21 +111,21 @@ module.exports = {
                             flags: MessageFlags.IsComponentsV2,
                         });
                     }
-                } catch (err) { console.error('[Raid Refresh]', err); }
+                } catch (err) { logInteractionError('Raid Refresh', err); }
                 return;
             }
 
             // ─── Pokemon Collection / Market Pagination ───
             if (customId.startsWith('pkmn_') || customId.startsWith('pkdet_') || customId.startsWith('market_page_') || customId.startsWith('market_buy_')) {
                 try { const pokemonCmd = require('../commands/pokemon/pokemon'); await pokemonCmd.handleButton(interaction); }
-                catch (err) { console.error('[Pokemon Button]', err); }
+                catch (err) { logInteractionError('Pokemon Button', err); }
                 return;
             }
 
             // ─── Shop Quick Buy / Pagination ───
             if (customId.startsWith('shop_buy_') || customId.startsWith('shop_page_')) {
                 try { const shopCmd = require('../commands/pokemon/shop'); await shopCmd.handleButton(interaction); }
-                catch (err) { console.error('[Shop Button]', err); }
+                catch (err) { logInteractionError('Shop Button', err); }
                 return;
             }
 
@@ -129,21 +137,21 @@ module.exports = {
             // ─── Wish Again ───
             if (customId.startsWith('wish_') || customId.startsWith('gacha_')) {
                 try { const gachaCmd = require('../commands/pokemon/gacha'); await gachaCmd.handleButton(interaction, client); }
-                catch (err) { console.error('[Wish Button]', err); }
+                catch (err) { logInteractionError('Wish Button', err); }
                 return;
             }
 
             // ─── Leaderboards ───
             if (customId.startsWith('lb_')) {
                 try { const lbCmd = require('../commands/pokemon/leaderboard'); await lbCmd.handleButton(interaction); }
-                catch (err) { console.error('[Leaderboard Button]', err); }
+                catch (err) { logInteractionError('Leaderboard Button', err); }
                 return;
             }
 
             // ─── Raid Command Buttons ───
             if (customId.startsWith('raid_')) {
                 try { const raidCmd = require('../commands/pokemon/raid'); await raidCmd.handleButton(interaction); }
-                catch (err) { console.error('[Raid Button]', err); }
+                catch (err) { logInteractionError('Raid Button', err); }
                 return;
             }
 
