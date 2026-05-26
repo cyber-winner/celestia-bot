@@ -19,6 +19,16 @@ module.exports = {
         const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
         const author = isInteraction ? interaction.user : interaction.author;
 
+        if (isInteraction) {
+            try {
+                if (!interaction.deferred && !interaction.replied) {
+                    await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+                }
+            } catch (err) {
+                console.error('[Compare Defer]', err);
+            }
+        }
+
         let opponent = null;
         let myPokemonName = null;
         let theirPokemonName = null;
