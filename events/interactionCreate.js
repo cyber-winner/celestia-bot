@@ -73,6 +73,39 @@ module.exports = {
         if (interaction.isButton()) {
             const customId = interaction.customId;
 
+            // Monkey-patch interaction.reply and interaction.update for buttons to prevent 10062/40060 crashes
+            const originalReply = interaction.reply.bind(interaction);
+            interaction.reply = async function (options) {
+                try {
+                    if (interaction.deferred || interaction.replied) {
+                        return await interaction.editReply(options);
+                    }
+                    return await originalReply(options);
+                } catch (err) {
+                    if (err.code === 10062 || err.code === 40060 || err.message?.includes('Unknown Interaction')) {
+                        return; // Safe suppress
+                    }
+                    throw err;
+                }
+            };
+
+            const originalUpdate = interaction.update ? interaction.update.bind(interaction) : null;
+            if (originalUpdate) {
+                interaction.update = async function (options) {
+                    try {
+                        if (interaction.deferred || interaction.replied) {
+                            return await interaction.editReply(options);
+                        }
+                        return await originalUpdate(options);
+                    } catch (err) {
+                        if (err.code === 10062 || err.code === 40060 || err.message?.includes('Unknown Interaction')) {
+                            return; // Safe suppress
+                        }
+                        throw err;
+                    }
+                };
+            }
+
             // ─── Spawn Catch Button ───
             if (customId.startsWith('spawn_catch_') && customId.endsWith('_active')) {
                 return handleSpawnCatch(interaction, client);
