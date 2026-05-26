@@ -5,7 +5,7 @@ const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuil
 const pokemonStore = require('../../store/pokemonStore');
 const accountStore = require('../../store/accountStore');
 const economyStore = require('../../store/economyStore');
-const { COLORS, getRankBadge, getRarityTag, getTypeColor, paginationRow, pokemonDetailContainer, errorContainer, successContainer } = require('../../utils/componentBuilder');
+const { COLORS, getRankBadge, getRarityTag, getTypeColor, paginationRow, pokemonDetailContainer, errorContainer, successContainer, EMOJIS } = require('../../utils/componentBuilder');
 
 const PER_PAGE = 5;
 
@@ -421,7 +421,7 @@ module.exports = {
         }
 
         const balance = await economyStore.getBalance(await accountStore.resolveUserId(author.id));
-        const { EMOJIS, paginationRow } = require('../../utils/componentBuilder');
+        // EMOJIS is now imported globally at the top of the file
 
         const container = new ContainerBuilder().setAccentColor(COLORS.ECONOMY)
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🏪 Player Market`))
