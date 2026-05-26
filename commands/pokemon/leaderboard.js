@@ -53,7 +53,9 @@ module.exports = {
         if (isUpdate) {
             await interaction.deferUpdate();
         } else if (typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand()) {
-            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+            }
         }
 
         let title = '';
