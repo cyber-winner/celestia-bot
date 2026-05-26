@@ -96,25 +96,50 @@ module.exports = {
             }
         }
 
-        const userId = await accountStore.resolveUserId(targetUser.id);
-        const authorId = await accountStore.resolveUserId(author.id);
         const isSelf = targetUser.id === author.id;
 
-        // ─── Case 1: Sell Command ───
+        // ─── Case 1: Sell Command Ephemeral Validation ───
         if (action === 'sell') {
             if (!pokemonName || !price || isNaN(price) || price <= 0) {
                 return interaction.reply({
-                    components: [errorContainer('Invalid Command', 'Usage: `/pokemon action:sell price:<amount> pokemon_name:<name>`\nPrefix: `!pokemon sell <price> <name>`')],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    components: [errorContainer('Invalid Command', `👤 **${author.username}**: Usage: \`/pokemon action:sell price:<amount> pokemon_name:<name>\``)],
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
+        }
 
+        // ─── Case 2: Buy Command Ephemeral Validation ───
+        if (action === 'buy' && pokemonName) {
+            if (isSelf) {
+                return interaction.reply({
+                    components: [errorContainer('Invalid Target', `👤 **${author.username}**: You cannot buy your own listings!`)],
+                    flags: MessageFlags.IsComponentsV2,
+                });
+            }
+        }
+
+        // ─── Case 3: Detail View Ephemeral Validation ───
+        if (action === 'details' && !pokemonName) {
+            return interaction.reply({
+                components: [errorContainer('Missing Name', `👤 **${author.username}**: Specify the name of the Pokémon details you want to view.`)],
+                flags: MessageFlags.IsComponentsV2,
+            });
+        }
+
+        // Defer reply for DB operations
+        await interaction.deferReply().catch(() => {});
+
+        const userId = await accountStore.resolveUserId(targetUser.id);
+        const authorId = await accountStore.resolveUserId(author.id);
+
+        // ─── Case 1: Sell Command ───
+        if (action === 'sell') {
             const result = await pokemonStore.sellPokemon(authorId, price, pokemonName);
             if (!result.success) {
                 const msg = result.reason === 'not_owned' ? `You don't own any **${pokemonName}**!` : 'Sale failed.';
-                return interaction.reply({
+                return interaction.editReply({
                     components: [errorContainer('Listing Failed', msg)],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
 
@@ -128,24 +153,11 @@ module.exports = {
                     `-# Other players can now buy it using: \`/pokemon action:buy user:${author.username} pokemon_name:${result.pokemonName}\``
                 ));
 
-            return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            return interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         // ─── Case 2: Buy Command ───
-        if (action === 'buy') {
-            if (isSelf) {
-                return interaction.reply({
-                    components: [errorContainer('Invalid Target', 'You cannot buy your own listings!')],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-                });
-            }
-            if (!pokemonName) {
-                return interaction.reply({
-                    components: [errorContainer('Invalid Command', 'Specify the Pokémon name to buy!\nUsage: `/pokemon action:buy user:<seller> pokemon_name:<name>`')],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-                });
-            }
-
+        if (action === 'buy' && pokemonName) {
             const result = await pokemonStore.buyPokemon(authorId, userId, pokemonName);
             if (!result.success) {
                 let msg = 'Transaction failed.';
@@ -154,9 +166,9 @@ module.exports = {
                 } else if (result.reason === 'insufficient_coins') {
                     msg = `Insufficient coins! Cost: **${result.needed.toLocaleString()}**, you have **${result.have.toLocaleString()}**.`;
                 }
-                return interaction.reply({
+                return interaction.editReply({
                     components: [errorContainer('Purchase Failed', msg)],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
 
@@ -170,7 +182,7 @@ module.exports = {
                     `✨ *The Pokémon has been added to your collection!*`
                 ));
 
-            return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            return interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
         // ─── Case 2.5: Market Command (Listings) ───
@@ -180,18 +192,11 @@ module.exports = {
 
         // ─── Case 3: Detail View ───
         if (action === 'details') {
-            if (!pokemonName) {
-                return interaction.reply({
-                    components: [errorContainer('Missing Name', 'Specify the name of the Pokémon details you want to view.')],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-                });
-            }
-
             const details = await pokemonStore.getPokemonDetails(userId, pokemonName);
             if (!details) {
-                return interaction.reply({
+                return interaction.editReply({
                     components: [errorContainer('Not Found', `${isSelf ? 'You don\'t' : `**${targetUser.username}** doesn't`} own any **${pokemonName}**.`)],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
 
@@ -200,7 +205,7 @@ module.exports = {
                 footer: `🗂️ **Owned:** ×${details.count} · **Best Level:** ${details.bestLevel}`
             });
 
-            return interaction.reply({
+            return interaction.editReply({
                 components: [container],
                 flags: MessageFlags.IsComponentsV2,
             });
@@ -209,9 +214,9 @@ module.exports = {
         // ─── Case 4: Collection List View ───
         const pokedex = await pokemonStore.getUserPokedex(userId);
         if (pokedex.length === 0) {
-            return interaction.reply({
+            return interaction.editReply({
                 components: [errorContainer('Empty Collection', `${isSelf ? 'You haven\'t' : `**${targetUser.username}** hasn't`} caught any Pokémon yet!\n\n> 💡 Pokémon spawn every 25 messages. Catch them with \`celestia catch <name>\`!`)],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 
@@ -224,7 +229,7 @@ module.exports = {
         container.addActionRowComponents(pagination);
         const components = [container];
 
-        await interaction.reply({
+        await interaction.editReply({
             components,
             flags: MessageFlags.IsComponentsV2,
         });
@@ -361,12 +366,12 @@ module.exports = {
             
             const listing = await PokemonListing.findById(listingId);
             if (!listing) {
-                return interaction.reply({ components: [errorContainer('Not Found', 'This listing is no longer available.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                return interaction.reply({ components: [errorContainer('Not Found', `👤 **${interaction.user.username}**: This listing is no longer available.`)], flags: MessageFlags.IsComponentsV2 });
             }
 
             const buyerId = await accountStore.resolveUserId(interaction.user.id);
             if (buyerId === listing.sellerId) {
-                return interaction.reply({ components: [errorContainer('Invalid', 'You cannot buy your own listing!')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                return interaction.reply({ components: [errorContainer('Invalid', `👤 **${interaction.user.username}**: You cannot buy your own listing!`)], flags: MessageFlags.IsComponentsV2 });
             }
 
             const result = await pokemonStore.buyPokemon(buyerId, listing.sellerId, listing.pokemonName);
@@ -376,7 +381,7 @@ module.exports = {
                 if (result.reason === 'listing_not_found') msg = `Listing is no longer available.`;
                 else if (result.reason === 'insufficient_coins') msg = `Insufficient coins! Cost: **${result.needed.toLocaleString()}**, you have **${result.have.toLocaleString()}**.`;
                 
-                return interaction.reply({ components: [errorContainer('Purchase Failed', msg)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                return interaction.reply({ components: [errorContainer('Purchase Failed', `👤 **${interaction.user.username}**: ${msg}`)], flags: MessageFlags.IsComponentsV2 });
             }
 
             const sellerDiscordUser = await interaction.client.users.fetch(listing.sellerId).catch(() => ({ username: 'Unknown' }));
@@ -405,9 +410,14 @@ module.exports = {
         const listings = await PokemonListing.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit);
 
         if (listings.length === 0 && page === 1) {
-            const msg = { components: [errorContainer('Empty Market', 'No Pokémon listings available right now.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral };
-            if (isUpdate) return interaction.update(msg);
-            return interaction.reply(msg);
+            const msg = { components: [errorContainer('Empty Market', 'No Pokémon listings available right now.')], flags: MessageFlags.IsComponentsV2 };
+            if (isUpdate) {
+                if (interaction.replied) {
+                    return interaction.message.edit(msg).catch(() => {});
+                }
+                return interaction.update(msg);
+            }
+            return interaction.editReply(msg);
         }
 
         const balance = await economyStore.getBalance(await accountStore.resolveUserId(author.id));
@@ -446,9 +456,13 @@ module.exports = {
         const components = [container];
 
         if (isUpdate) {
-            await interaction.editReply({ components, flags: MessageFlags.IsComponentsV2 }).catch(() => interaction.update({ components, flags: MessageFlags.IsComponentsV2 }));
+            if (interaction.replied) {
+                await interaction.message.edit({ components, flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+            } else {
+                await interaction.update({ components, flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+            }
         } else {
-            await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+            await interaction.editReply({ components, flags: MessageFlags.IsComponentsV2 });
         }
     }
 };

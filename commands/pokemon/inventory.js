@@ -20,8 +20,8 @@ module.exports = {
 
         if (inventory.items.length === 0) {
             return interaction.reply({
-                components: [errorContainer('Empty Inventory', 'You have no items yet!\n> Buy items at the PokéMart: `/pokemart`')],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                components: [errorContainer('Empty Inventory', `👤 **${author.username}** has no items yet!\n> Buy items at the PokéMart: \`/pokemart\``)],
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 

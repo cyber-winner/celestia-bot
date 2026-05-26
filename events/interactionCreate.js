@@ -50,6 +50,21 @@ module.exports = {
                 return handleSpawnBuyRetry(interaction, client);
             }
 
+            // ─── Summon Catch Button ───
+            if (customId.startsWith('summon_catch_') && customId.endsWith('_active')) {
+                return handleSummonCatch(interaction, client);
+            }
+
+            // ─── Summon Info Button ───
+            if (customId.startsWith('summon_info_') && customId.endsWith('_active')) {
+                return handleSummonInfo(interaction);
+            }
+
+            // ─── Summon Buy & Retry Button ───
+            if (customId.startsWith('summon_buyretry_')) {
+                return handleSummonBuyRetry(interaction, client);
+            }
+
             // ─── Raid Join Button ───
             if (customId === 'raid_join') {
                 return handleRaidJoin(interaction, client);
@@ -871,5 +886,414 @@ async function handleOrbButton(interaction) {
         await pokeuse.handleLevelOrb(interaction, userId, pokemonName, author);
     } catch (err) {
         console.error('[Orb Button]', err);
+    }
+}
+
+async function handleSummonCatch(interaction, client) {
+    const clickedAt = Date.now();
+    const channelId = interaction.channel.id;
+    const author = interaction.user;
+    const userId = await accountStore.resolveUserId(author.id);
+
+    try {
+        await interaction.deferUpdate();
+    } catch (error) {
+        return; // Interaction expired or already handled
+    }
+
+    const summon = pokemonStore.getSummonedSpawn(channelId);
+    if (!summon) {
+        return interaction.followUp({
+            components: [errorContainer('Too Late!', 'The summoned Pokémon has vanished or already been caught!')],
+            flags: MessageFlags.IsComponentsV2,
+        });
+    }
+
+    if (summon.summonerId !== userId) {
+        return interaction.followUp({
+            components: [errorContainer('Locked', `👤 **${author.username}**: Only the summoner can catch a summoned Pokémon!`)],
+            flags: MessageFlags.IsComponentsV2,
+        });
+    }
+
+    // Call attemptSummonCatch
+    const result = await pokemonStore.attemptSummonCatch(channelId, userId, summon.name);
+
+    if (result.success) {
+        const p = result.pokemon;
+        const typeColor = getTypeColor(p.types);
+        const rankBadge = getRankBadge(p.level);
+        let rarityTag = '⬜ Common';
+        if (p.isLegendary) rarityTag = '👑 LEGENDARY';
+        else if (p.isMythical) rarityTag = '✨ MYTHICAL';
+
+        // Build premium catch card
+        const container = new ContainerBuilder().setAccentColor(typeColor);
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`## 🎉 ${p.name} CAUGHT!`)
+        );
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+        const trainerSection = new SectionBuilder();
+        trainerSection.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `👤 **Trainer:** ${author.username}\n` +
+                `📊 **Level:** ${p.level} — ${rankBadge}\n` +
+                `⭐ **Rarity:** ${rarityTag}\n` +
+                `🔖 **Type:** ${(p.types || []).join(' / ')}\n` +
+                `🎲 **Catch Chance:** ${Math.round(result.catchChance * 100)}%`
+            )
+        );
+        trainerSection.setThumbnailAccessory(
+            new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 }))
+        );
+        container.addSectionComponents(trainerSection);
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+        if (p.cardImage) {
+            container.addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.cardImage))
+            );
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        }
+
+        if (p.description) {
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`> *${p.description.substring(0, 300)}*`)
+            );
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        }
+
+        // Footer
+        let footerText = `💰 **+${result.coinReward} PokéCoins**`;
+        footerText += `\n💼 Wallet: ${result.totalCoins.toLocaleString()} coins · <:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls}`;
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
+
+        // Details / Pokemon List buttons
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`pkdet_${author.id}_${encodeURIComponent(p.name)}`)
+                .setEmoji('📋')
+                .setLabel('Details')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId(`pkmn_${author.id}_open`)
+                .setEmoji('📦')
+                .setLabel('Pokémon List')
+                .setStyle(ButtonStyle.Secondary),
+        );
+
+        // Edit the original summoning message
+        try {
+            await interaction.message.edit({
+                components: [
+                    new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('summon_caught_disabled').setEmoji('✅').setLabel(`Caught by ${author.username}!`).setStyle(ButtonStyle.Success).setDisabled(true),
+                    ),
+                ],
+                flags: MessageFlags.IsComponentsV2,
+            });
+        } catch (e) {}
+
+        await interaction.followUp({ components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
+    } else {
+        // Failed attempt
+        if (result.reason === 'no_pokeballs') {
+            const container = new ContainerBuilder().setAccentColor(COLORS.DANGER);
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`## <:Pokemon:1508753880782209085> No Pokéballs!`)
+            );
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+            const section = new SectionBuilder();
+            section.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `👤 **${author.username}**, you don't have enough Pokéballs to catch this summoned Pokémon!\n\n` +
+                    `<:Pokemon:1508753880782209085> **Pokéballs:** ${result.have} remaining (2 needed)\n\n` +
+                    `> Buy 10 Pokéballs for 250 coins and try again!`
+                )
+            );
+            section.setThumbnailAccessory(
+                new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 }))
+            );
+            container.addSectionComponents(section);
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+            const buyRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`summon_buyretry_${channelId}`)
+                    .setEmoji('🛒')
+                    .setLabel('Buy 10 Pokéballs & Retry')
+                    .setStyle(ButtonStyle.Success),
+            );
+
+            await interaction.followUp({ components: [container.addActionRowComponents(buyRow)], flags: MessageFlags.IsComponentsV2 });
+        } else if (result.reason === 'summon_ball_failed') {
+            // Broke free or vanished
+            if (result.despawned) {
+                // Vanished! Disable original summon buttons
+                try {
+                    await interaction.message.edit({
+                        components: [
+                            new ActionRowBuilder().addComponents(
+                                new ButtonBuilder().setCustomId('summon_vanished_disabled').setEmoji('💨').setLabel('Vanished!').setStyle(ButtonStyle.Danger).setDisabled(true),
+                            ),
+                        ],
+                        flags: MessageFlags.IsComponentsV2,
+                    });
+                } catch (e) {}
+
+                const container = errorContainer('Vanished', `👤 **${author.username}**: The summoned **${result.pokemonName}** broke free and vanished!\n<:Pokemon:1508753880782209085> Pokéballs remaining: ${result.remainingBalls}`);
+                await interaction.followUp({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            } else {
+                // Broke free but tries remain. We edit the original summon message to update tries left!
+                const typeColor = getTypeColor(summon.types);
+                const updatedContainer = new ContainerBuilder().setAccentColor(COLORS.CELESTIA)
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## <a:candle:1508754473680502855> Summoning Ritual`))
+                    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+                if (summon.cardImage) {
+                    updatedContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(summon.cardImage)));
+                    updatedContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+                }
+
+                const section = new SectionBuilder();
+                section.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `👤 **Summoner:** ${author.username}\n\n` +
+                        `🏷️ **${summon.name}** has answered the call!\n` +
+                        `📊 **Level:** ${summon.level}\n` +
+                        `🔖 **Type:** ${(summon.types || []).join(' / ')}\n\n` +
+                        `🎯 **Tries:** ${result.triesLeft}/3 · **Cost:** 2 balls per try\n\n` +
+                        `> Only the summoner can catch this Pokémon.`
+                    )
+                );
+                section.setThumbnailAccessory(new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 })));
+                updatedContainer.addSectionComponents(section);
+
+                const catchRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`summon_catch_${channelId}_active`)
+                        .setEmoji('<:Pokemon:1508753880782209085>')
+                        .setLabel(`Catch Pokémon! (${result.triesLeft} left)`)
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId(`summon_info_${channelId}_active`)
+                        .setEmoji('📋')
+                        .setLabel('Details')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+                try {
+                    await interaction.message.edit({
+                        components: [updatedContainer.addActionRowComponents(catchRow)],
+                        flags: MessageFlags.IsComponentsV2,
+                    });
+                } catch (e) {}
+
+                const failContainer = errorContainer('Broke Free', `👤 **${author.username}**: The summoned **${result.pokemonName}** broke free!\n🎯 Tries Left: ${result.triesLeft}/3 · <:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls}`);
+                await interaction.followUp({ components: [failContainer], flags: MessageFlags.IsComponentsV2 });
+            }
+        }
+    }
+}
+
+async function handleSummonInfo(interaction) {
+    const channelId = interaction.channel.id;
+    const summon = pokemonStore.getSummonedSpawn(channelId);
+    if (!summon) {
+        return interaction.reply({
+            components: [errorContainer('No Summon', 'No active summoned Pokémon in this channel.')],
+            flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+        });
+    }
+
+    const typeColor = getTypeColor(summon.types);
+    const container = new ContainerBuilder().setAccentColor(typeColor);
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 📋 Summoned Pokémon Details`));
+    container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+    let info = `📊 **Level:** ${summon.level} — ${getRankBadge(summon.level)}\n`;
+    info += `🔖 **Type:** ${(summon.types || []).join(' / ')}\n`;
+    if (summon.genus) info += `📖 **Species:** ${summon.genus}\n`;
+    if (summon.baseStats) {
+        const bs = summon.baseStats;
+        info += `\n**Base Stats:**\n`;
+        info += `> ATK: \`${bs.atk}\` · DEF: \`${bs.def}\` · SPD: \`${bs.speed}\`\n`;
+        info += `> SP.ATK: \`${bs.spAtk}\` · SP.DEF: \`${bs.spDef}\` · HP: \`${bs.hp}\`\n`;
+    }
+
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(info));
+    await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+}
+
+async function handleSummonBuyRetry(interaction, client) {
+    const channelId = interaction.channel.id;
+    const author = interaction.user;
+    const userId = await accountStore.resolveUserId(author.id);
+
+    try { await interaction.deferUpdate(); } catch (e) { return; }
+
+    const summon = pokemonStore.getSummonedSpawn(channelId);
+    if (!summon) {
+        return interaction.followUp({
+            components: [errorContainer('Too Late!', 'The summoned Pokémon has vanished!')],
+            flags: MessageFlags.IsComponentsV2,
+        });
+    }
+
+    if (summon.summonerId !== userId) {
+        return interaction.followUp({
+            components: [errorContainer('Locked', `👤 **${author.username}**: Only the summoner can catch a summoned Pokémon!`)],
+            flags: MessageFlags.IsComponentsV2,
+        });
+    }
+
+    // Try to buy 10 Pokéballs (cost 250 coins)
+    const buyResult = await economyStore.buyItem(userId, 'Pokéball', 10);
+    if (!buyResult.success) {
+        return interaction.followUp({
+            components: [errorContainer('Transaction Failed', `👤 **${author.username}**: You don't have enough PokéCoins! (Cost: 250)`)],
+            flags: MessageFlags.IsComponentsV2,
+        });
+    }
+
+    // Auto-retry catch
+    const result = await pokemonStore.attemptSummonCatch(channelId, userId, summon.name);
+
+    if (result.success) {
+        // Edit original summoning message to show caught
+        try {
+            await interaction.message.edit({
+                components: [
+                    new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('summon_caught_disabled').setEmoji('✅').setLabel(`Caught by ${author.username}!`).setStyle(ButtonStyle.Success).setDisabled(true),
+                    ),
+                ],
+                flags: MessageFlags.IsComponentsV2,
+            });
+        } catch (e) {}
+
+        // Send catch card
+        const p = result.pokemon;
+        const typeColor = getTypeColor(p.types);
+        const rankBadge = getRankBadge(p.level);
+        let rarityTag = '⬜ Common';
+        if (p.isLegendary) rarityTag = '👑 LEGENDARY';
+        else if (p.isMythical) rarityTag = '✨ MYTHICAL';
+
+        const container = new ContainerBuilder().setAccentColor(typeColor);
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`## 🎉 ${p.name} CAUGHT!`)
+        );
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+        const trainerSection = new SectionBuilder();
+        trainerSection.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `👤 **Trainer:** ${author.username}\n` +
+                `📊 **Level:** ${p.level} — ${rankBadge}\n` +
+                `⭐ **Rarity:** ${rarityTag}\n` +
+                `🔖 **Type:** ${(p.types || []).join(' / ')}\n` +
+                `📦 **Bought:** +10 Pokéballs (Auto-Buy)`
+            )
+        );
+        trainerSection.setThumbnailAccessory(
+            new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 }))
+        );
+        container.addSectionComponents(trainerSection);
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+        if (p.cardImage) {
+            container.addMediaGalleryComponents(
+                new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.cardImage))
+            );
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        }
+
+        let footerText = `💰 **+${result.coinReward} PokéCoins**`;
+        footerText += `\n💼 Wallet: ${result.totalCoins.toLocaleString()} coins · <:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls}`;
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`pkdet_${author.id}_${encodeURIComponent(p.name)}`)
+                .setEmoji('📋')
+                .setLabel('Details')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId(`pkmn_${author.id}_open`)
+                .setEmoji('📦')
+                .setLabel('Pokémon List')
+                .setStyle(ButtonStyle.Secondary),
+        );
+
+        await interaction.followUp({ components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 });
+    } else {
+        if (result.reason === 'summon_ball_failed') {
+            if (result.despawned) {
+                try {
+                    await interaction.message.edit({
+                        components: [
+                            new ActionRowBuilder().addComponents(
+                                new ButtonBuilder().setCustomId('summon_vanished_disabled').setEmoji('💨').setLabel('Vanished!').setStyle(ButtonStyle.Danger).setDisabled(true),
+                            ),
+                        ],
+                        flags: MessageFlags.IsComponentsV2,
+                    });
+                } catch (e) {}
+
+                const container = errorContainer('Vanished', `👤 **${author.username}**: The summoned **${result.pokemonName}** broke free and vanished!\n📦 **Bought:** +10 Pokéballs (Auto-Buy) · <:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls}`);
+                await interaction.followUp({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            } else {
+                // Update summon message tries
+                const typeColor = getTypeColor(summon.types);
+                const updatedContainer = new ContainerBuilder().setAccentColor(COLORS.CELESTIA)
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## <a:candle:1508754473680502855> Summoning Ritual`))
+                    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+                if (summon.cardImage) {
+                    updatedContainer.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(summon.cardImage)));
+                    updatedContainer.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+                }
+
+                const section = new SectionBuilder();
+                section.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `👤 **Summoner:** ${author.username}\n\n` +
+                        `🏷️ **${summon.name}** has answered the call!\n` +
+                        `📊 **Level:** ${summon.level}\n` +
+                        `🔖 **Type:** ${(summon.types || []).join(' / ')}\n\n` +
+                        `🎯 **Tries:** ${result.triesLeft}/3 · **Cost:** 2 balls per try\n\n` +
+                        `> Only the summoner can catch this Pokémon.`
+                    )
+                );
+                section.setThumbnailAccessory(new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 })));
+                updatedContainer.addSectionComponents(section);
+
+                const catchRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`summon_catch_${channelId}_active`)
+                        .setEmoji('<:Pokemon:1508753880782209085>')
+                        .setLabel(`Catch Pokémon! (${result.triesLeft} left)`)
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId(`summon_info_${channelId}_active`)
+                        .setEmoji('📋')
+                        .setLabel('Details')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+                try {
+                    await interaction.message.edit({
+                        components: [updatedContainer.addActionRowComponents(catchRow)],
+                        flags: MessageFlags.IsComponentsV2,
+                    });
+                } catch (e) {}
+
+                const failContainer = errorContainer('Broke Free', `👤 **${author.username}**: The summoned **${result.pokemonName}** broke free!\n📦 **Bought:** +10 Pokéballs (Auto-Buy)\n🎯 Tries Left: ${result.triesLeft}/3 · <:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls}`);
+                await interaction.followUp({ components: [failContainer], flags: MessageFlags.IsComponentsV2 });
+            }
+        }
     }
 }

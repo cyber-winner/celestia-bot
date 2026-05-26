@@ -45,8 +45,8 @@ module.exports = {
         const raidDoc = await ActiveRaid.findOne({});
         if (!raidDoc) {
             return interaction.reply({
-                components: [errorContainer('No Active Raid', 'No Global Raid is currently active.\n\n> Raids spawn hourly across all platforms!')],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                components: [errorContainer('No Active Raid', `👤 **${interaction.user.username}**: No Global Raid is currently active.\n\n> Raids spawn hourly across all platforms!`)],
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 

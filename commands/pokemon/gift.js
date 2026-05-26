@@ -58,8 +58,8 @@ module.exports = {
             // Text command parsing
             if (!args || args.length < 3) {
                 return interaction.reply({
-                    components: [errorContainer('Invalid Command', 'Usage:\n`!gift pokemon @user <name>`\n`!gift item @user <name> [qty]`\n`!gift pokecoin @user <amount>`')],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    components: [errorContainer('Invalid Command', `👤 **${author.username}**: Usage:\n\`!gift pokemon @user <name>\`\n\`!gift item @user <name> [qty]\`\n\`!gift pokecoin @user <amount>\``)],
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
             
@@ -68,8 +68,8 @@ module.exports = {
             
             if (!['pokemon', 'item', 'pokecoin', 'coins', 'coin'].includes(subcommand) || !targetUser) {
                 return interaction.reply({
-                    components: [errorContainer('Invalid Command', 'Specify what to gift: `pokemon`, `item`, or `pokecoin` and tag a user.')],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    components: [errorContainer('Invalid Command', `👤 **${author.username}**: Specify what to gift: \`pokemon\`, \`item\`, or \`pokecoin\` and tag a user.`)],
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
             if (subcommand === 'coins' || subcommand === 'coin') subcommand = 'pokecoin';
@@ -93,8 +93,8 @@ module.exports = {
 
         if (targetUser.id === author.id) {
             return interaction.reply({
-                components: [errorContainer('Invalid Target', "You can't gift to yourself! 😅")],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                components: [errorContainer('Invalid Target', `👤 **${author.username}**: You can't gift to yourself! 😅`)],
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 
@@ -102,11 +102,11 @@ module.exports = {
         const targetId = await accountStore.resolveUserId(targetUser.id);
 
         if (subcommand === 'pokemon') {
-            if (!pokemonName) return interaction.reply({ components: [errorContainer('Missing Name', 'Specify the Pokémon to gift.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            if (!pokemonName) return interaction.reply({ components: [errorContainer('Missing Name', `👤 **${author.username}**: Specify the Pokémon to gift.`)], flags: MessageFlags.IsComponentsV2 });
             
             const result = await pokemonStore.giftPokemon(senderId, targetId, pokemonName);
             if (!result.success) {
-                return interaction.reply({ components: [errorContainer('Gift Failed', `You don't own **${pokemonName}**!`)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                return interaction.reply({ components: [errorContainer('Gift Failed', `👤 **${author.username}**: You don't own **${pokemonName}**!`)], flags: MessageFlags.IsComponentsV2 });
             }
 
             const section = new SectionBuilder();
@@ -131,11 +131,11 @@ module.exports = {
         }
 
         if (subcommand === 'item') {
-            if (!itemName) return interaction.reply({ components: [errorContainer('Missing Name', 'Specify the item to gift.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            if (!itemName) return interaction.reply({ components: [errorContainer('Missing Name', `👤 **${author.username}**: Specify the item to gift.`)], flags: MessageFlags.IsComponentsV2 });
             
             const itemDetails = economyStore.getItemDetails(itemName);
             if (!itemDetails) {
-                return interaction.reply({ components: [errorContainer('Not Found', `Could not find any item matching **${itemName}**.`)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                return interaction.reply({ components: [errorContainer('Not Found', `👤 **${author.username}**: Could not find any item matching **${itemName}**.`)], flags: MessageFlags.IsComponentsV2 });
             }
 
             const senderInv = await economyStore.getInventory(senderId);
@@ -144,13 +144,13 @@ module.exports = {
             if (!senderItem || senderItem.quantity < amount) {
                 const ownedQty = senderItem ? senderItem.quantity : 0;
                 return interaction.reply({
-                    components: [errorContainer('Insufficient Inventory', `**Item:** ${itemDetails.emoji} ${itemDetails.displayName}\n🎒 **You have:** ${ownedQty} units\n🎁 **Trying to gift:** ${amount} units`)],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    components: [errorContainer('Insufficient Inventory', `👤 **${author.username}**:\n**Item:** ${itemDetails.emoji} ${itemDetails.displayName}\n🎒 **You have:** ${ownedQty} units\n🎁 **Trying to gift:** ${amount} units`)],
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
 
             const removed = await economyStore.removeInventoryItem(senderId, itemDetails.displayName, amount);
-            if (!removed) return interaction.reply({ components: [errorContainer('Error', 'Failed to deduct item. Try again.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            if (!removed) return interaction.reply({ components: [errorContainer('Error', `👤 **${author.username}**: Failed to deduct item. Try again.`)], flags: MessageFlags.IsComponentsV2 });
             await economyStore.addInventoryItem(targetId, itemDetails.displayName, amount);
 
             const section = new SectionBuilder();
@@ -175,12 +175,12 @@ module.exports = {
         }
 
         if (subcommand === 'pokecoin') {
-            if (!amount || amount <= 0) return interaction.reply({ components: [errorContainer('Missing Amount', 'Specify a valid coin amount to gift.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            if (!amount || amount <= 0) return interaction.reply({ components: [errorContainer('Missing Amount', `👤 **${author.username}**: Specify a valid coin amount to gift.`)], flags: MessageFlags.IsComponentsV2 });
             
             const result = await economyStore.transferCoins(senderId, targetId, amount);
             if (!result.success) {
                 const msg = result.reason === 'insufficient' ? `Not enough coins! You have **${result.balance.toLocaleString()}**.` : 'Transfer failed.';
-                return interaction.reply({ components: [errorContainer('Transfer Failed', msg)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                return interaction.reply({ components: [errorContainer('Transfer Failed', `👤 **${author.username}**: ${msg}`)], flags: MessageFlags.IsComponentsV2 });
             }
 
             const section = new SectionBuilder();

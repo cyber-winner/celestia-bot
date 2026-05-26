@@ -57,13 +57,13 @@ module.exports = {
 
         if (!opponent || !myPokemonName || !theirPokemonName) {
             return interaction.reply({
-                components: [errorContainer('Invalid Battle', 'Specify opponent and both Pokémon: `!fight @opponent <your_pokemon> <their_pokemon>`')],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                components: [errorContainer('Invalid Battle', `👤 **${author.username}**: Specify opponent and both Pokémon: \`!fight @opponent <your_pokemon> <their_pokemon>\``)],
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 
         if (opponent.id === author.id) {
-            return interaction.reply({ components: [errorContainer('Error', "Can't fight yourself!")], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            return interaction.reply({ components: [errorContainer('Error', `👤 **${author.username}**: Can't fight yourself!`)], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (isInteraction) {

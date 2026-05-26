@@ -145,10 +145,10 @@ module.exports = {
             if (compassCount < wishCount) {
                 return interaction.reply({
                     components: [errorContainer('Not Enough Compasses',
-                        `You need **${wishCount}** Wishing Compass${wishCount > 1 ? 'es' : ''} but only have **${compassCount}**.\n\n` +
+                        `👤 **${author.username}**, you need **${wishCount}** Wishing Compass${wishCount > 1 ? 'es' : ''} but only have **${compassCount}**.\n\n` +
                         `> <:compass:1508756257840824340> Buy compasses: \`/pokemart buy item:wishing compass\`\n` +
                         `> <:Crystal:1508755711348445214> Costs **160 Radiant Crystals** each`)],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
 

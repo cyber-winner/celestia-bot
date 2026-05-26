@@ -1,5 +1,5 @@
 /**
- * /compare — Compare two Pokémon side-by-side with Components V2.
+ * /compare — Compare your Pokémon with another user side-by-side with Components V2.
  */
 const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MediaGalleryBuilder, MediaGalleryItemBuilder, MessageFlags } = require('discord.js');
 const pokemonStore = require('../../store/pokemonStore');
@@ -9,34 +9,55 @@ const { COLORS, getTypeColor, getRankBadge, errorContainer } = require('../../ut
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('compare')
-        .setDescription('Compare two Pokémon side-by-side')
-        .addStringOption(opt => opt.setName('pokemon1').setDescription('First Pokémon').setRequired(true))
-        .addStringOption(opt => opt.setName('pokemon2').setDescription('Second Pokémon').setRequired(true)),
-    aliases: [],
+        .setDescription('Compare your Pokémon with another user side-by-side')
+        .addStringOption(opt => opt.setName('pokemon').setDescription('Name of your Pokémon').setRequired(true))
+        .addUserOption(opt => opt.setName('user').setDescription('User to compare with').setRequired(true))
+        .addStringOption(opt => opt.setName('target_pokemon').setDescription('Name of their Pokémon (defaults to same)').setRequired(false)),
+    aliases: ['comp'],
 
     async execute(interaction, client, args) {
         const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
         const author = isInteraction ? interaction.user : interaction.author;
-        const name1 = isInteraction ? interaction.options.getString('pokemon1') : args?.[0];
-        const name2 = isInteraction ? interaction.options.getString('pokemon2') : args?.[1];
 
-        if (!name1 || !name2) {
+        let opponent = null;
+        let myPokemonName = null;
+        let theirPokemonName = null;
+
+        if (isInteraction) {
+            myPokemonName = interaction.options.getString('pokemon');
+            opponent = interaction.options.getUser('user');
+            theirPokemonName = interaction.options.getString('target_pokemon') || myPokemonName;
+        } else if (args && args.length > 0) {
+            opponent = interaction.mentions?.users?.first();
+            const nonMentions = args.filter(a => !a.startsWith('<@') && !a.endsWith('>'));
+            myPokemonName = nonMentions[0];
+            theirPokemonName = nonMentions[1] || myPokemonName;
+        }
+
+        if (!myPokemonName || !opponent) {
             return interaction.reply({
-                components: [errorContainer('Missing Pokémon', 'Specify two Pokémon to compare: `!compare <pokemon1> <pokemon2>`')],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                components: [errorContainer('Missing Arguments', `👤 **${author.username}**: Specify a Pokémon name and a user: \`/compare pokemon:<your_pokemon> user:<@user> [target_pokemon:<their_pokemon>]\` or \`!compare <your_pokemon> @user [their_pokemon]\``)],
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 
-        const userId = await accountStore.resolveUserId(author.id);
+        const myId = await accountStore.resolveUserId(author.id);
+        const theirId = await accountStore.resolveUserId(opponent.id);
 
-        const p1 = await pokemonStore.getPokemonDetails(userId, name1);
-        const p2 = await pokemonStore.getPokemonDetails(userId, name2);
+        const p1 = await pokemonStore.getPokemonDetails(myId, myPokemonName);
+        const p2 = await pokemonStore.getPokemonDetails(theirId, theirPokemonName);
 
-        if (!p1 || !p2) {
-            const missing = !p1 ? name1 : name2;
+        if (!p1) {
             return interaction.reply({
-                components: [errorContainer('Not Found', `You don't own **${missing}**!`)],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                components: [errorContainer('Not Owned', `👤 **${author.username}**: You don't own **${myPokemonName}**!`)],
+                flags: MessageFlags.IsComponentsV2,
+            });
+        }
+
+        if (!p2) {
+            return interaction.reply({
+                components: [errorContainer('Not Owned', `👤 **${author.username}**: **${opponent.username}** doesn't own **${theirPokemonName}**!`)],
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 
@@ -45,8 +66,7 @@ module.exports = {
         const section = new SectionBuilder();
         section.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-                `👤 **Trainer:** ${author.username}\n\n` +
-                `**${p1.name}** vs **${p2.name}**`
+                `👤 **${author.username}** vs **${opponent.username}**`
             )
         );
         section.setThumbnailAccessory(new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 })));
@@ -73,6 +93,10 @@ module.exports = {
         // Stats comparison
         const bs1 = p1.baseStats || {};
         const bs2 = p2.baseStats || {};
+        
+        const total1 = (bs1.hp || 0) + (bs1.atk || 0) + (bs1.def || 0) + (bs1.spAtk || 0) + (bs1.spDef || 0) + (bs1.speed || 0);
+        const total2 = (bs2.hp || 0) + (bs2.atk || 0) + (bs2.def || 0) + (bs2.spAtk || 0) + (bs2.spDef || 0) + (bs2.speed || 0);
+
         const stat = (name, v1, v2) => {
             const icon = v1 > v2 ? '🟢' : v1 < v2 ? '<:Pokemon:1508753880782209085>' : '⬜';
             const icon2 = v2 > v1 ? '🟢' : v2 < v1 ? '<:Pokemon:1508753880782209085>' : '⬜';
@@ -88,7 +112,8 @@ module.exports = {
             `${stat('DEF ', bs1.def, bs2.def)}\n` +
             `${stat('SATK', bs1.spAtk, bs2.spAtk)}\n` +
             `${stat('SDEF', bs1.spDef, bs2.spDef)}\n` +
-            `${stat('SPD ', bs1.speed, bs2.speed)}\n\n` +
+            `${stat('SPD ', bs1.speed, bs2.speed)}\n` +
+            `${stat('BST ', total1, total2)}\n\n` +
             `🗂️ **Owned:** ×${p1.count} **vs** ×${p2.count}`
         ));
 

@@ -50,7 +50,15 @@ async function getDisplayName(userId, fallbackName) {
 async function getLeaderboardName(userId) {
     // Check if this is a linked account
     const linked = await LinkedAccount.findOne({ unifiedId: userId });
-    if (linked) return linked.displayName;
+    if (linked) {
+        if (linked.whatsappId) {
+            try {
+                const known = await KnownUser.findOne({ lid: linked.whatsappId });
+                if (known) return known.name;
+            } catch (e) {}
+        }
+        return linked.displayName;
+    }
 
     // Check if it's a discord user
     if (userId.startsWith('discord_')) {

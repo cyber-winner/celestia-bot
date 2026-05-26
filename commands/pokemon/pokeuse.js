@@ -268,7 +268,7 @@ module.exports = {
                 `📊 **Level:** ${summon.level}\n` +
                 `🔖 **Type:** ${(summon.types || []).join(' / ')}\n\n` +
                 `🎯 **Tries:** 3/3 · **Cost:** 2 balls per try\n\n` +
-                `> Type \`celestia catch ${summon.name}\` to catch it!\n` +
+                `> Click the button below to catch it!\n` +
                 `> Only the summoner can catch this Pokémon.`
             )
         );
@@ -285,6 +285,19 @@ module.exports = {
 
         container.addSectionComponents(section);
 
-        await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+        const catchRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`summon_catch_${channelId}_active`)
+                .setEmoji('<:Pokemon:1508753880782209085>')
+                .setLabel('Catch Pokémon!')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId(`summon_info_${channelId}_active`)
+                .setEmoji('📋')
+                .setLabel('Details')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.reply({ components: [container.addActionRowComponents(catchRow)], flags: MessageFlags.IsComponentsV2 });
     },
 };

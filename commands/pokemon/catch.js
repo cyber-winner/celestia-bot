@@ -25,8 +25,8 @@ module.exports = {
         if (summonedSpawn) {
             if (summonedSpawn.summonerId !== userId) {
                 return interaction.reply({
-                    components: [errorContainer('Locked', 'Only the summoner can catch a summoned Pokémon!')],
-                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    components: [errorContainer('Locked', `👤 **${author.username}**: Only the summoner can catch a summoned Pokémon!`)],
+                    flags: MessageFlags.IsComponentsV2,
                 });
             }
 
@@ -77,10 +77,10 @@ module.exports = {
                 catch_cooldown: `Skip some spawns before trying to catch another Pokémon.`,
             };
             
-            const msg = msgs[result.reason] || "Catch attempt failed.";
+            const msg = `👤 **${author.username}**: ${msgs[result.reason] || "Catch attempt failed."}`;
             await interaction.reply({
                 components: [errorContainer('Catch Failed', msg)],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                flags: MessageFlags.IsComponentsV2,
             });
         }
     },
@@ -110,9 +110,10 @@ async function handleSummonCatchResult(interaction, result, summonedSpawn) {
             no_pokeballs: `Need 2 Pokéballs to attempt catching a summoned Pokémon, but you only have ${result.have}.`,
         };
         const msg = msgs[result.reason] || "Summon catch attempt failed.";
+        const errorMsg = `👤 **${interaction.user.username}**: ${msg}`;
         await interaction.reply({
-            components: [errorContainer(result.despawned ? 'Vanished' : 'Attempt Failed', msg)],
-            flags: MessageFlags.IsComponentsV2 | (result.despawned ? MessageFlags.None : MessageFlags.Ephemeral),
+            components: [errorContainer(result.despawned ? 'Vanished' : 'Attempt Failed', errorMsg)],
+            flags: MessageFlags.IsComponentsV2,
         });
     }
 }

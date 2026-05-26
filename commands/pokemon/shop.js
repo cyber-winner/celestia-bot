@@ -15,6 +15,7 @@ module.exports = {
     aliases: ['store', 'market'],
 
     async execute(interaction, client, args) {
+        await interaction.deferReply().catch(() => {});
         const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
         const author = isInteraction ? interaction.user : interaction.author;
         const userId = await accountStore.resolveUserId(author.id);
@@ -71,12 +72,14 @@ module.exports = {
         container.addActionRowComponents(pagRow);
         const components = [container];
 
-        if (isUpdate && interaction.update) {
-            await interaction.update({ components, flags: MessageFlags.IsComponentsV2 });
-        } else if (interaction.editReply && !interaction.replied) {
-            await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+        if (isUpdate) {
+            if (interaction.replied) {
+                await interaction.message.edit({ components, flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+            } else {
+                await interaction.update({ components, flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+            }
         } else {
-            await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+            await interaction.editReply({ components, flags: MessageFlags.IsComponentsV2 });
         }
     },
 
@@ -90,7 +93,7 @@ module.exports = {
             const action = parts[3];
 
             if (interaction.user.id !== targetUserId) {
-                return interaction.reply({ components: [errorContainer('Unauthorized', 'You cannot navigate someone else\'s shop view.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                return interaction.reply({ components: [errorContainer('Unauthorized', `👤 **${interaction.user.username}**: You cannot navigate someone else's shop view.`)], flags: MessageFlags.IsComponentsV2 });
             }
 
             const catalog = economyStore.getMarketCatalog();
@@ -158,7 +161,7 @@ module.exports = {
         const quantity = parseInt(qtyStr);
 
         if (isNaN(quantity) || quantity <= 0) {
-            return interaction.reply({ components: [errorContainer('Invalid Quantity', 'Please enter a valid positive number.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            return interaction.reply({ components: [errorContainer('Invalid Quantity', `👤 **${interaction.user.username}**: Please enter a valid positive number.`)], flags: MessageFlags.IsComponentsV2 });
         }
 
         const catalog = economyStore.getMarketCatalog();
@@ -171,7 +174,7 @@ module.exports = {
         }
 
         if (!itemDetails) {
-            return interaction.reply({ components: [errorContainer('Not Found', 'Item not found in shop.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            return interaction.reply({ components: [errorContainer('Not Found', `👤 **${interaction.user.username}**: Item not found in shop.`)], flags: MessageFlags.IsComponentsV2 });
         }
 
         const userId = await accountStore.resolveUserId(interaction.user.id);
@@ -182,17 +185,18 @@ module.exports = {
             const msg = result.reason === `insufficient_${currency}`
                 ? `Not enough ${currency}! Need **${result.needed.toLocaleString()}**, have **${result.have.toLocaleString()}**.`
                 : 'Purchase failed.';
-            return interaction.reply({ components: [errorContainer('Purchase Failed', msg)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            return interaction.reply({ components: [errorContainer('Purchase Failed', `👤 **${interaction.user.username}**: ${msg}`)], flags: MessageFlags.IsComponentsV2 });
         }
 
         const currencyEmoji = itemDetails.id === 'wishing compass' ? EMOJIS.CRYSTAL : EMOJIS.COIN;
 
         const container = successContainer('Purchase Complete!',
+            `👤 **Trainer:** ${interaction.user.username}\n\n` +
             `${itemDetails.emoji} **${result.item}** ×${result.quantity}\n\n` +
             `💸 **Spent:** ${result.spent.toLocaleString()} ${currencyEmoji}\n` +
             `💰 **Remaining:** ${result.newBalance.toLocaleString()} ${currencyEmoji}`
         );
 
-        await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+        await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
 };
