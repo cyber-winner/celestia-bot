@@ -22,12 +22,8 @@ function logInteractionError(context, err) {
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction, client) {
-
-        if (interaction.isChatInputCommand()) {
-            const command = client.commands.get(interaction.commandName);
-            if (!command) return;
-
-            // Monkey-patch interaction.reply to automatically route to editReply if already deferred/replied
+        // Universal monkey-patch of interaction.reply and interaction.update to fully eliminate all 10062 / 40060 errors across all interaction types (Commands, Buttons, SelectMenus, Modals)
+        if (interaction && typeof interaction.reply === 'function') {
             const originalReply = interaction.reply.bind(interaction);
             interaction.reply = async function (options) {
                 try {
@@ -42,6 +38,28 @@ module.exports = {
                     throw err;
                 }
             };
+        }
+
+        if (interaction && typeof interaction.update === 'function') {
+            const originalUpdate = interaction.update.bind(interaction);
+            interaction.update = async function (options) {
+                try {
+                    if (interaction.deferred || interaction.replied) {
+                        return await interaction.editReply(options);
+                    }
+                    return await originalUpdate(options);
+                } catch (err) {
+                    if (err.code === 10062 || err.code === 40060 || err.message?.includes('Unknown Interaction')) {
+                        return; // Safe suppress
+                    }
+                    throw err;
+                }
+            };
+        }
+
+        if (interaction.isChatInputCommand()) {
+            const command = client.commands.get(interaction.commandName);
+            if (!command) return;
 
             // Defer reply immediately so it never times out (3-second window)
             try {
@@ -72,39 +90,6 @@ module.exports = {
 
         if (interaction.isButton()) {
             const customId = interaction.customId;
-
-            // Monkey-patch interaction.reply and interaction.update for buttons to prevent 10062/40060 crashes
-            const originalReply = interaction.reply.bind(interaction);
-            interaction.reply = async function (options) {
-                try {
-                    if (interaction.deferred || interaction.replied) {
-                        return await interaction.editReply(options);
-                    }
-                    return await originalReply(options);
-                } catch (err) {
-                    if (err.code === 10062 || err.code === 40060 || err.message?.includes('Unknown Interaction')) {
-                        return; // Safe suppress
-                    }
-                    throw err;
-                }
-            };
-
-            const originalUpdate = interaction.update ? interaction.update.bind(interaction) : null;
-            if (originalUpdate) {
-                interaction.update = async function (options) {
-                    try {
-                        if (interaction.deferred || interaction.replied) {
-                            return await interaction.editReply(options);
-                        }
-                        return await originalUpdate(options);
-                    } catch (err) {
-                        if (err.code === 10062 || err.code === 40060 || err.message?.includes('Unknown Interaction')) {
-                            return; // Safe suppress
-                        }
-                        throw err;
-                    }
-                };
-            }
 
             // ─── Spawn Catch Button ───
             if (customId.startsWith('spawn_catch_') && customId.endsWith('_active')) {
