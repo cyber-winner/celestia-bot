@@ -44,41 +44,62 @@ async function getDisplayName(userId, fallbackName) {
     return fallbackName || 'Trainer';
 }
 
+const nameCache = new Map();
+
 /**
  * Get display name for leaderboard display by game userId.
  */
 async function getLeaderboardName(userId) {
+    const now = Date.now();
+    if (nameCache.has(userId)) {
+        const cached = nameCache.get(userId);
+        if (now - cached.timestamp < 300000) { // 5 minutes cache
+            return cached.name;
+        }
+    }
+
+    let resolvedName = 'Trainer';
+
     // Check if this is a linked account
-    const linked = await LinkedAccount.findOne({ unifiedId: userId });
+    const linked = await LinkedAccount.findOne({ $or: [{ unifiedId: userId }, { discordId: userId.replace('discord_', '') }] });
     if (linked) {
         if (linked.whatsappId) {
             try {
                 const known = await KnownUser.findOne({ lid: linked.whatsappId });
-                if (known) return known.name;
-            } catch (e) {}
+                if (known) resolvedName = known.name;
+                else resolvedName = linked.displayName;
+            } catch (e) {
+                resolvedName = linked.displayName;
+            }
+        } else {
+            resolvedName = linked.displayName;
         }
-        return linked.displayName;
-    }
-
-    // Check if it's a discord user
-    if (userId.startsWith('discord_')) {
+    } else if (userId.startsWith('discord_')) {
         const discordId = userId.replace('discord_', '');
+        const cachedUser = global.bot?.users?.cache?.get(discordId);
+        if (cachedUser) {
+            resolvedName = cachedUser.username;
+        } else {
+            try {
+                const user = await global.bot.users.fetch(discordId);
+                resolvedName = user.username;
+            } catch {
+                resolvedName = `User ${discordId.slice(-4)}`;
+            }
+        }
+    } else {
+        // WhatsApp user (phone number) — check KnownUser store first
         try {
-            const user = await global.bot.users.fetch(discordId);
-            return user.username;
-        } catch {
-            return `User ${discordId.slice(-4)}`;
+            const known = await KnownUser.findOne({ lid: userId });
+            if (known) resolvedName = known.name;
+            else resolvedName = `WA:${userId.slice(-4)}`;
+        } catch (e) {
+            resolvedName = `WA:${userId.slice(-4)}`;
         }
     }
 
-    // WhatsApp user (phone number) — check KnownUser store first
-    try {
-        const known = await KnownUser.findOne({ lid: userId });
-        if (known) return known.name;
-    } catch (e) {}
-
-    // Fallback: WhatsApp user (phone number) — show masked
-    return `WA:${userId.slice(-4)}`;
+    nameCache.set(userId, { name: resolvedName, timestamp: now });
+    return resolvedName;
 }
 
 /**

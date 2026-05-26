@@ -64,45 +64,61 @@ module.exports = {
             title = '🏆 Top Trainers (PokéPoints)';
             color = COLORS.CELESTIA;
             const top = await pokemonStore.getTrainerLeaderboard();
-            if (top.length === 0) boardText = '> No trainers have points yet!';
-            for (let i = 0; i < Math.min(top.length, 10); i++) {
-                const w = top[i];
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
-                const name = await accountStore.getLeaderboardName(w.userId);
-                boardText += `${medal} **${name}**\n> 🎯 ${w.totalCaught} caught · 📖 ${w.uniqueCount} unique · 🏅 **${w.score.toLocaleString()} pts**\n\n`;
+            if (top.length === 0) {
+                boardText = '> No trainers have points yet!';
+            } else {
+                const names = await Promise.all(top.slice(0, 10).map(w => accountStore.getLeaderboardName(w.userId)));
+                for (let i = 0; i < Math.min(top.length, 10); i++) {
+                    const w = top[i];
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
+                    const name = names[i];
+                    boardText += `${medal} **${name}**\n> 🎯 ${w.totalCaught} caught · 📖 ${w.uniqueCount} unique · 🏅 **${w.score.toLocaleString()} pts**\n\n`;
+                }
             }
         } else if (category === 'networth') {
             title = '💎 Global Net Worth';
             color = COLORS.LEGENDARY;
             const top = await economyStore.getNetWorthTop(10);
-            if (top.length === 0) boardText = '> No data available!';
-            for (let i = 0; i < top.length; i++) {
-                const w = top[i];
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
-                const name = await accountStore.getLeaderboardName(w.userId);
-                boardText += `${medal} **${name}** — 💰 **${(w.netWorth || 0).toLocaleString()}** Value\n`;
+            if (top.length === 0) {
+                boardText = '> No data available!';
+            } else {
+                const names = await Promise.all(top.map(w => accountStore.getLeaderboardName(w.userId)));
+                for (let i = 0; i < top.length; i++) {
+                    const w = top[i];
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
+                    const name = names[i];
+                    boardText += `${medal} **${name}** — 💰 **${(w.netWorth || 0).toLocaleString()}** Value\n`;
+                }
             }
         } else if (category === 'coins') {
             title = '🪙 Richest Trainers (PokéCoins)';
             color = COLORS.GOLD;
             const top = await economyStore.getBalTop(10);
-            if (top.length === 0) boardText = '> No data available!';
-            for (let i = 0; i < top.length; i++) {
-                const w = top[i];
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
-                const name = await accountStore.getLeaderboardName(w.userId);
-                boardText += `${medal} **${name}** — ${EMOJIS.COIN} **${(w.pokecoins || 0).toLocaleString()}**\n`;
+            if (top.length === 0) {
+                boardText = '> No data available!';
+            } else {
+                const names = await Promise.all(top.map(w => accountStore.getLeaderboardName(w.userId)));
+                for (let i = 0; i < top.length; i++) {
+                    const w = top[i];
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
+                    const name = names[i];
+                    boardText += `${medal} **${name}** — ${EMOJIS.COIN} **${(w.pokecoins || 0).toLocaleString()}**\n`;
+                }
             }
         } else if (category === 'crystals') {
             title = '✨ Radiant Crystal Hoarders';
             color = COLORS.CRYSTAL;
             const top = await economyStore.getCrystalTop(10);
-            if (top.length === 0) boardText = '> No data available!';
-            for (let i = 0; i < top.length; i++) {
-                const w = top[i];
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
-                const name = await accountStore.getLeaderboardName(w.userId);
-                boardText += `${medal} **${name}** — ${EMOJIS.CRYSTAL} **${(w.radiantCrystals || 0).toLocaleString()}**\n`;
+            if (top.length === 0) {
+                boardText = '> No data available!';
+            } else {
+                const names = await Promise.all(top.map(w => accountStore.getLeaderboardName(w.userId)));
+                for (let i = 0; i < top.length; i++) {
+                    const w = top[i];
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
+                    const name = names[i];
+                    boardText += `${medal} **${name}** — ${EMOJIS.CRYSTAL} **${(w.radiantCrystals || 0).toLocaleString()}**\n`;
+                }
             }
         }
 
@@ -129,10 +145,10 @@ module.exports = {
         }
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('lb_points').setLabel('Top Trainers').setEmoji('🏆').setStyle(category === 'points' ? ButtonStyle.Success : ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('lb_networth').setLabel('Net Worth').setEmoji('💎').setStyle(category === 'networth' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('lb_coins').setLabel('PokéCoins').setEmoji(EMOJIS.COIN).setStyle(category === 'coins' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('lb_crystals').setLabel('Crystals').setEmoji(EMOJIS.CRYSTAL).setStyle(category === 'crystals' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('lb_points').setLabel('Top Trainers').setEmoji('🏆').setStyle(category === 'points' ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(category === 'points'),
+            new ButtonBuilder().setCustomId('lb_networth').setLabel('Net Worth').setEmoji('💎').setStyle(category === 'networth' ? ButtonStyle.Primary : ButtonStyle.Secondary).setDisabled(category === 'networth'),
+            new ButtonBuilder().setCustomId('lb_coins').setLabel('PokéCoins').setEmoji(EMOJIS.COIN).setStyle(category === 'coins' ? ButtonStyle.Primary : ButtonStyle.Secondary).setDisabled(category === 'coins'),
+            new ButtonBuilder().setCustomId('lb_crystals').setLabel('Crystals').setEmoji(EMOJIS.CRYSTAL).setStyle(category === 'crystals' ? ButtonStyle.Primary : ButtonStyle.Secondary).setDisabled(category === 'crystals'),
         );
 
         const payload = { components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 };

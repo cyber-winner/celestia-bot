@@ -50,62 +50,11 @@ module.exports = {
             });
         }
 
-        const boss = raidDoc.boss;
-        const hpPct = Math.round((boss.hp / boss.maxHp) * 100);
-        const filled = Math.round((boss.hp / boss.maxHp) * 20);
-        const empty = 20 - filled;
-        const hpBar = '█'.repeat(Math.max(0, filled)) + '░'.repeat(Math.max(0, empty));
-        const typeColor = getTypeColor(boss.types);
+        const raidSpawn = require('../../events/raidSpawn');
+        const container = raidSpawn.buildRaidContainer(raidDoc.boss, raidDoc.participants);
+        const buttons = raidSpawn.buildRaidButtons();
 
-        const container = new ContainerBuilder().setAccentColor(typeColor);
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🏟️ Global Raid Status`));
-
-        if (boss.cardImage) {
-            container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(boss.cardImage)));
-        }
-
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-
-        let rarityLabel = '';
-        if (boss.isMythical) rarityLabel = '✨ MYTHICAL';
-        else if (boss.isLegendary) rarityLabel = '👑 LEGENDARY';
-
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-            `<:Pokemon:1508753880782209085> **Boss:** ${boss.name} (Lv. ${boss.level})\n` +
-            (rarityLabel ? `⭐ **Rarity:** ${rarityLabel}\n` : '') +
-            `❤️ **HP:** \`[${hpBar}]\` **${hpPct}%**\n` +
-            `> ${boss.hp.toLocaleString()} / ${boss.maxHp.toLocaleString()} HP\n` +
-            `🔖 **Type:** ${(boss.types || []).join(' / ')}`
-        ));
-
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-
-        // Participants
-        const participants = raidDoc.participants || [];
-        let participantsText = `### 👥 Participants (${participants.length})\n`;
-        if (participants.length === 0) {
-            participantsText += '> No participants yet!';
-        } else {
-            const sorted = [...participants].sort((a, b) => b.damageDealt - a.damageDealt);
-            for (let i = 0; i < Math.min(sorted.length, 10); i++) {
-                const p = sorted[i];
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `\`${i + 1}.\``;
-                participantsText += `${medal} **${p.senderName}** — ${p.pokemonName}\n`;
-                participantsText += `> ⚔️ ${p.damageDealt.toLocaleString()} dmg · 🔄 ${p.tries - 1} faints\n\n`;
-            }
-        }
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(participantsText));
-
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-            `-# <a:RaidPasses:1508756029259911239> Use the Join Raid button in the raid channel to enter!`
-        ));
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('raid_refresh').setEmoji('🔄').setLabel('Refresh').setStyle(ButtonStyle.Secondary),
-        );
-
-        const replyPayload = { components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 };
+        const replyPayload = { components: [container, buttons], flags: MessageFlags.IsComponentsV2 };
         if (interaction.replied || interaction.deferred) {
             await interaction.editReply(replyPayload);
         } else {

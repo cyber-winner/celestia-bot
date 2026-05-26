@@ -89,7 +89,20 @@ module.exports = {
                 try {
                     const raidSpawn = require('./raidSpawn');
                     await interaction.deferUpdate();
-                    await raidSpawn.updateRaidMessage(client);
+                    const raidDoc = await ActiveRaid.findOne({});
+                    if (raidDoc) {
+                        const container = raidSpawn.buildRaidContainer(raidDoc.boss, raidDoc.participants);
+                        const buttons = raidSpawn.buildRaidButtons();
+                        await interaction.editReply({
+                            components: [container, buttons],
+                            flags: MessageFlags.IsComponentsV2,
+                        });
+                    } else {
+                        await interaction.editReply({
+                            components: [errorContainer('No Active Raid', 'The raid has ended!')],
+                            flags: MessageFlags.IsComponentsV2,
+                        });
+                    }
                 } catch (err) { console.error('[Raid Refresh]', err); }
                 return;
             }
