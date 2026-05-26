@@ -18,8 +18,6 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildPresences,
         GatewayIntentBits.GuildMessageReactions
     ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
@@ -40,9 +38,7 @@ async function start() {
         if (err.message.includes('disallowed intents')) {
             console.error('\u001b[31m[ERROR] Disallowed Intents!\u001b[0m');
             console.error('Please enable the following intents in the Discord Developer Portal:');
-            console.error('1. Presence Intent');
-            console.error('2. Server Members Intent');
-            console.error('3. Message Content Intent');
+            console.error('1. Message Content Intent');
         } else {
             console.error('Login Error:', err);
         }

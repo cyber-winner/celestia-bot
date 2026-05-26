@@ -28,7 +28,7 @@ module.exports = {
         const getLatencyEmoji = (ms) => {
             if (ms < 100) return '🟢';
             if (ms < 200) return '🟡';
-            return '🔴';
+            return '<:Pokemon:1508753880782209085>';
         };
 
         const container = new ContainerBuilder()

@@ -60,9 +60,9 @@ module.exports = {
             statsText += `⭐ **Rarity:** ${rarityTag}\n`;
             statsText += `🔖 **Type:** ${(p.types || []).join(' / ')}\n\n`;
             statsText += `💰 **+${result.coinReward} PokéCoins**`;
-            if (result.crystalReward > 0) statsText += ` · 💎 **+${result.crystalReward} Crystals**`;
+            if (result.crystalReward > 0) statsText += ` · <:Crystal:1508755711348445214> **+${result.crystalReward} Crystals**`;
             statsText += `\n💼 Wallet: ${result.totalCoins.toLocaleString()} coins\n`;
-            statsText += `🔴 Pokéballs: ${result.remainingBalls} remaining`;
+            statsText += `<:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls} remaining`;
 
             container.addTextDisplayComponents(new TextDisplayBuilder().setContent(statsText));
 
@@ -90,7 +90,7 @@ async function handleSummonCatchResult(interaction, result, summonedSpawn) {
     if (result.success) {
         const p = result.pokemon;
         const container = new ContainerBuilder().setAccentColor(COLORS.CELESTIA);
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🕯️ Summoned Pokémon Captured!`));
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## <a:candle:1508754473680502855> Summoned Pokémon Captured!`));
         if (p.cardImage) {
             container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.cardImage)));
         }
@@ -98,14 +98,14 @@ async function handleSummonCatchResult(interaction, result, summonedSpawn) {
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
             `🏷️ **${p.name}** (Lv. ${p.level})\n` +
             `🎲 Catch Chance: ${Math.round(result.catchChance * 100)}%\n` +
-            `💰 +${result.coinReward} coins\n🔴 Balls: ${result.remainingBalls}`
+            `💰 +${result.coinReward} coins\n<:Pokemon:1508753880782209085> Balls: ${result.remainingBalls}`
         ));
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     } else {
         const msgs = {
             summon_ball_failed: result.despawned 
-                ? `The summoned **${result.pokemonName}** vanished!\n🔴 Balls: ${result.remainingBalls}`
-                : `The summoned **${result.pokemonName}** broke free!\n🎯 Tries: ${result.triesLeft}/3\n🔴 Balls: ${result.remainingBalls}`,
+                ? `The summoned **${result.pokemonName}** vanished!\n<:Pokemon:1508753880782209085> Balls: ${result.remainingBalls}`
+                : `The summoned **${result.pokemonName}** broke free!\n🎯 Tries: ${result.triesLeft}/3\n<:Pokemon:1508753880782209085> Balls: ${result.remainingBalls}`,
             wrong_name: `The summoned Pokémon is **${summonedSpawn.name}**!`,
             no_pokeballs: `Need 2 Pokéballs to attempt catching a summoned Pokémon, but you only have ${result.have}.`,
         };

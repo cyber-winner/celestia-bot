@@ -55,7 +55,7 @@ const CATEGORIES = {
     },
     pokemon: {
         name: 'Pokémon & Gacha',
-        emoji: '🪙',
+        emoji: '<:pokecoins:1508755286784086037>',
         tagline: 'Gacha wishing, card collections, and PvP battles',
         description: 'Catch wild spawns, build a card collection, level up/use items, test your luck on wishing banners, and battle other trainers.',
         color: 0xffcb05,
@@ -74,11 +74,11 @@ module.exports = {
             opt.setName('module')
                 .setDescription('Jump straight to a specific command module')
                 .addChoices(
-                    { name: '🎉 Fun & Social', value: 'fun' },
-                    { name: '🛡️ Moderation', value: 'moderation' },
-                    { name: '🔧 Utility Core', value: 'utility' },
-                    { name: '🔞 NSFW Hub', value: 'nsfw' },
-                    { name: '🪙 Pokémon & Gacha', value: 'pokemon' }
+                    { name: ' Fun & Social', value: 'fun' },
+                    { name: ' Moderation', value: 'moderation' },
+                    { name: ' Utility Core', value: 'utility' },
+                    { name: ' NSFW Hub', value: 'nsfw' },
+                    { name: ' Pokémon & Gacha', value: 'pokemon' }
                 )
         ),
     aliases: ['h', 'commands', 'cmd'],
@@ -115,7 +115,8 @@ module.exports = {
 
             selectMenu.addOptions(
                 new StringSelectMenuOptionBuilder()
-                    .setLabel('🏠 Command Center')
+                    .setEmoji('🏠')
+                    .setLabel('Command Center')
                     .setDescription('Return to the main overview')
                     .setValue('overview')
                     .setDefault(selectedKey === 'overview')
@@ -124,7 +125,8 @@ module.exports = {
             for (const { key, meta } of activeCategories) {
                 selectMenu.addOptions(
                     new StringSelectMenuOptionBuilder()
-                        .setLabel(`${meta.emoji} ${meta.name}`)
+                        .setEmoji(meta.emoji)
+                        .setLabel(meta.name)
                         .setDescription(meta.tagline)
                         .setValue(key)
                         .setDefault(selectedKey === key)

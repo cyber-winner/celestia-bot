@@ -139,7 +139,7 @@ function paginationRow(prefix, currentPage, totalPages, extraButtons = []) {
     row.addComponents(
         new ButtonBuilder()
             .setCustomId(`${prefix}_first`)
-            .setLabel('⏮')
+            .setEmoji('⏮')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(currentPage <= 1)
     );
@@ -147,7 +147,7 @@ function paginationRow(prefix, currentPage, totalPages, extraButtons = []) {
     row.addComponents(
         new ButtonBuilder()
             .setCustomId(`${prefix}_prev`)
-            .setLabel('◀')
+            .setEmoji('◀')
             .setStyle(ButtonStyle.Primary)
             .setDisabled(currentPage <= 1)
     );
@@ -163,7 +163,7 @@ function paginationRow(prefix, currentPage, totalPages, extraButtons = []) {
     row.addComponents(
         new ButtonBuilder()
             .setCustomId(`${prefix}_next`)
-            .setLabel('▶')
+            .setEmoji('▶')
             .setStyle(ButtonStyle.Primary)
             .setDisabled(currentPage >= totalPages)
     );
@@ -171,7 +171,7 @@ function paginationRow(prefix, currentPage, totalPages, extraButtons = []) {
     row.addComponents(
         new ButtonBuilder()
             .setCustomId(`${prefix}_last`)
-            .setLabel('⏭')
+            .setEmoji('⏭')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(currentPage >= totalPages)
     );
@@ -189,6 +189,15 @@ function pokemonDetailContainer(pokemon, extra = {}) {
     const color = getTypeColor(pokemon.types);
 
     const container = new ContainerBuilder().setAccentColor(color);
+
+    if (extra.header) {
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(extra.header)
+        );
+        container.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+    }
 
     // Title
     container.addTextDisplayComponents(
@@ -243,9 +252,21 @@ function pokemonDetailContainer(pokemon, extra = {}) {
     return container;
 }
 
+// ─── Emojis ───
+const EMOJIS = {
+    POKEBALL: '<:Pokemon:1508753880782209085>',
+    CANDLE: '<a:candle:1508754473680502855>',
+    COIN: '<:pokecoins:1508755286784086037>',
+    CRYSTAL: '<:Crystal:1508755711348445214>',
+    ORB: '<a:crystal:1508755858211864596>',
+    RAIDPASS: '<a:RaidPasses:1508756029259911239>',
+    COMPASS: '<:compass:1508756257840824340>',
+};
+
 module.exports = {
     COLORS,
     TYPE_COLORS,
+    EMOJIS,
     getTypeColor,
     getRankBadge,
     getRarityTag,

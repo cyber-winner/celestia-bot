@@ -29,6 +29,7 @@ const itemsList = require('../data/items.json');
 const MARKET_ITEMS = {};
 for (const item of itemsList) {
     MARKET_ITEMS[item.id] = {
+        id: item.id,
         displayName: item.displayName,
         emoji: item.emoji,
         description: item.description,
@@ -416,6 +417,27 @@ async function getCrystalTop(limit = 10) {
     return PlayerWallet.find({}).sort({ radiantCrystals: -1 }).limit(limit);
 }
 
+/**
+ * Get top players by Net Worth.
+ */
+async function getNetWorthTop(limit = 10) {
+    return PlayerWallet.aggregate([
+        {
+            $addFields: {
+                netWorth: {
+                    $add: [
+                        { $ifNull: ["$pokecoins", 0] },
+                        { $multiply: [{ $ifNull: ["$radiantCrystals", 0] }, 1500] },
+                        { $multiply: [{ $ifNull: ["$pokeballs", 0] }, 25] }
+                    ]
+                }
+            }
+        },
+        { $sort: { netWorth: -1 } },
+        { $limit: limit }
+    ]);
+}
+
 // ─── Daily Reward ───
 
 const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -514,6 +536,72 @@ async function claimWeekly(userId) {
     };
 }
 
+// ─── Monthly Reward ───
+
+const MONTHLY_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const MONTHLY_COINS = 100000;
+const MONTHLY_BALLS = 100;
+const MONTHLY_ORBS = 15;
+const MONTHLY_PASSES = 15;
+const MONTHLY_COMPASSES = 30;
+
+/**
+ * Claim monthly reward. Returns reward info or cooldown remaining.
+ */
+async function claimMonthly(userId) {
+    const wallet = await getWallet(userId);
+    const now = Date.now();
+
+    if (wallet.lastMonthly) {
+        const elapsed = now - wallet.lastMonthly.getTime();
+        if (elapsed < MONTHLY_COOLDOWN_MS) {
+            const remaining = MONTHLY_COOLDOWN_MS - elapsed;
+            const days = Math.floor(remaining / (24 * 60 * 60 * 1000));
+            const hours = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+            const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+            return {
+                success: false,
+                reason: 'cooldown',
+                days,
+                hours,
+                minutes,
+            };
+        }
+    }
+
+    // Award coins and pokéballs
+    wallet.pokecoins += MONTHLY_COINS;
+    wallet.pokeballs += MONTHLY_BALLS;
+
+    // Helper to add to inventory
+    const addToInv = (itemName, qty) => {
+        const existing = wallet.inventory.find(i => i.itemName === itemName);
+        if (existing) {
+            existing.quantity += qty;
+        } else {
+            wallet.inventory.push({ itemName, quantity: qty });
+        }
+    };
+
+    addToInv('Level Orb', MONTHLY_ORBS);
+    addToInv('Raid Pass', MONTHLY_PASSES);
+    addToInv('Wishing Compass', MONTHLY_COMPASSES);
+
+    wallet.lastMonthly = new Date(now);
+    await wallet.save();
+
+    return {
+        success: true,
+        coinsAwarded: MONTHLY_COINS,
+        ballsAwarded: MONTHLY_BALLS,
+        orbsAwarded: MONTHLY_ORBS,
+        passesAwarded: MONTHLY_PASSES,
+        compassesAwarded: MONTHLY_COMPASSES,
+        totalCoins: wallet.pokecoins,
+        totalBalls: wallet.pokeballs,
+    };
+}
+
 const SUMMON_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours (1 day)
 
 /**
@@ -599,8 +687,10 @@ module.exports = {
     getMarketCatalog,
     getBalTop,
     getCrystalTop,
+    getNetWorthTop,
     claimDaily,
     claimWeekly,
+    claimMonthly,
     checkSummonCooldown,
     recordSummonUsage,
     getItemDetails,

@@ -2,7 +2,7 @@
  * /balance — View your Pokémon economy wallet with Components V2.
  */
 
-const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MessageFlags, SectionBuilder, ThumbnailBuilder } = require('discord.js');
 const economyStore = require('../../store/economyStore');
 const accountStore = require('../../store/accountStore');
 const { COLORS } = require('../../utils/componentBuilder');
@@ -38,6 +38,16 @@ module.exports = {
             itemsText = '> *No items yet*';
         }
 
+        const section = new SectionBuilder();
+        section.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `<:pokecoins:1508755286784086037> **PokéCoins:** ${balance.pokecoins.toLocaleString()}\n` +
+                `<:Pokemon:1508753880782209085> **Pokéballs:** ${balance.pokeballs.toLocaleString()}\n` +
+                `<:Crystal:1508755711348445214> **Radiant Crystals:** ${(balance.radiantCrystals || 0).toLocaleString()}`
+            )
+        );
+        section.setThumbnailAccessory(new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 128 })));
+
         const container = new ContainerBuilder()
             .setAccentColor(COLORS.ECONOMY)
             .addTextDisplayComponents(
@@ -48,19 +58,13 @@ module.exports = {
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                    `🪙 **PokéCoins:** ${balance.pokecoins.toLocaleString()}\n` +
-                    `🔴 **Pokéballs:** ${balance.pokeballs.toLocaleString()}\n` +
-                    `💎 **Radiant Crystals:** ${(balance.radiantCrystals || 0).toLocaleString()}`
-                )
-            )
+            .addSectionComponents(section)
             .addSeparatorComponents(
                 new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
             )
             .addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                    `### 🎒 Inventory\n${itemsText}`
+                    `### 🎒 Inventory Quick View\n${itemsText}`
                 )
             );
 

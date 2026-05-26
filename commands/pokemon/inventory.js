@@ -1,7 +1,7 @@
 /**
  * /inventory — View your inventory with Components V2.
  */
-const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, MessageFlags, SectionBuilder, ThumbnailBuilder } = require('discord.js');
 const economyStore = require('../../store/economyStore');
 const accountStore = require('../../store/accountStore');
 const { COLORS, errorContainer } = require('../../utils/componentBuilder');
@@ -39,16 +39,24 @@ module.exports = {
             }
             itemsText += `${emoji} **${item.itemName}** — ×${item.quantity}\n`;
         }
+        
+        const section = new SectionBuilder();
+        section.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `<:pokecoins:1508755286784086037> **PokéCoins:** ${inventory.pokecoins.toLocaleString()}\n` +
+                `<:Pokemon:1508753880782209085> **Pokéballs:** ${inventory.pokeballs.toLocaleString()}\n` +
+                `<:Crystal:1508755711348445214> **Radiant Crystals:** ${(inventory.radiantCrystals || 0).toLocaleString()}`
+            )
+        );
+        section.setThumbnailAccessory(new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 })));
 
         const container = new ContainerBuilder()
             .setAccentColor(COLORS.CELESTIA)
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🎒 Your Inventory`))
             .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-                `🪙 **PokéCoins:** ${inventory.pokecoins.toLocaleString()}\n` +
-                `🔴 **Pokéballs:** ${inventory.pokeballs.toLocaleString()}\n\n` +
-                `### Items\n${itemsText}`
-            ));
+            .addSectionComponents(section)
+            .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### Items\n${itemsText}`));
 
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     },

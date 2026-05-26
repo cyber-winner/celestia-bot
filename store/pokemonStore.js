@@ -221,11 +221,6 @@ function getActiveSpawn(channelId) {
 }
 
 async function attemptCatch(channelId, userId, guessedName) {
-    if (isPokelocked(userId)) {
-        const remaining = Math.ceil(getPokelockRemaining(userId) / 1000);
-        return { success: false, reason: 'pokelocked', remaining };
-    }
-
     if (isCatchCooledDown(channelId, userId)) {
         const skipsLeft = getCatchCooldownRemaining(channelId, userId);
         return { success: false, reason: 'catch_cooldown', skipsLeft };
@@ -234,13 +229,6 @@ async function attemptCatch(channelId, userId, guessedName) {
     const spawn = getActiveSpawn(channelId);
     if (!spawn) {
         return { success: false, reason: 'no_spawn' };
-    }
-
-    const elapsed = Date.now() - spawn.spawnedAt;
-    if (elapsed < GRACE_PERIOD_MS) {
-        applyPokelock(userId);
-        const lockSecs = Math.ceil(POKELOCK_DURATION_MS / 1000);
-        return { success: false, reason: 'too_fast', lockDuration: lockSecs };
     }
 
     if (spawn.name.toLowerCase() !== guessedName.toLowerCase()) {

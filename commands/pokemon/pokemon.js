@@ -21,7 +21,8 @@ module.exports = {
                     { name: 'list', value: 'list' },
                     { name: 'details', value: 'details' },
                     { name: 'sell', value: 'sell' },
-                    { name: 'buy', value: 'buy' }
+                    { name: 'buy', value: 'buy' },
+                    { name: 'market', value: 'market' }
                 )
         )
         .addStringOption(opt =>
@@ -62,7 +63,7 @@ module.exports = {
             }
         } else if (args && args.length > 0) {
             const firstArg = args[0].toLowerCase();
-            if (['sell', 'buy', 'list', 'details', 'detail', 'info'].includes(firstArg)) {
+            if (['sell', 'buy', 'list', 'details', 'detail', 'info', 'market'].includes(firstArg)) {
                 action = firstArg;
                 if (action === 'detail' || action === 'info') action = 'details';
 
@@ -172,6 +173,11 @@ module.exports = {
             return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
 
+        // ─── Case 2.5: Market Command (Listings) ───
+        if (action === 'market' || (action === 'buy' && !pokemonName)) {
+            return this.renderMarket(interaction, 1, author);
+        }
+
         // ─── Case 3: Detail View ───
         if (action === 'details') {
             if (!pokemonName) {
@@ -190,6 +196,7 @@ module.exports = {
             }
 
             const container = pokemonDetailContainer(details, {
+                header: `👤 **${targetUser.username}'s** Pokémon Details`,
                 footer: `🗂️ **Owned:** ×${details.count} · **Best Level:** ${details.bestLevel}`
             });
 
@@ -214,11 +221,8 @@ module.exports = {
 
         const container = buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSelf);
         const pagination = paginationRow(`pkmn_${targetUser.id}`, page, totalPages);
-        const detailButtons = buildDetailButtons(pokedex, page, targetUser.id);
-
+        container.addActionRowComponents(pagination);
         const components = [container];
-        if (detailButtons) components.push(detailButtons);
-        components.push(pagination);
 
         await interaction.reply({
             components,
@@ -232,6 +236,8 @@ module.exports = {
 
         // ─── Detail Buttons ───
         if (customId.startsWith('pkdet_')) {
+            await interaction.deferReply().catch(() => {});
+            
             const parts = customId.split('_');
             const targetUserId = parts[1];
             const pokemonName = decodeURIComponent(parts.slice(2).join('_'));
@@ -239,19 +245,27 @@ module.exports = {
             const details = await pokemonStore.getPokemonDetails(userId, pokemonName);
 
             if (!details) {
-                return interaction.reply({
+                return interaction.followUp({
                     components: [errorContainer('Not Found', `That Pokémon was not found.`)],
                     flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
                 });
             }
 
+            let targetDiscordUser;
+            try {
+                targetDiscordUser = await interaction.client.users.fetch(targetUserId);
+            } catch {
+                targetDiscordUser = { username: 'A Trainer' };
+            }
+
             const container = pokemonDetailContainer(details, {
+                header: `👤 **${targetDiscordUser.username}'s** Pokémon Details`,
                 footer: `🗂️ **Owned:** ×${details.count} · **Best Level:** ${details.bestLevel}`
             });
 
-            return interaction.reply({
+            return interaction.followUp({
                 components: [container],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                flags: MessageFlags.IsComponentsV2,
             });
         }
 
@@ -294,18 +308,149 @@ module.exports = {
 
             const container = buildCollectionPage(pokedex, newPage, totalPages, stats, targetDiscordUser, isSelf);
             const pagination = paginationRow(`pkmn_${targetUserId}`, newPage, totalPages);
-            const detailButtons = buildDetailButtons(pokedex, newPage, targetUserId);
 
+            container.addActionRowComponents(pagination);
             const components = [container];
-            if (detailButtons) components.push(detailButtons);
-            components.push(pagination);
 
-            await interaction.update({
-                components,
-                flags: MessageFlags.IsComponentsV2,
-            });
+            if (action === 'open') {
+                await interaction.reply({
+                    components,
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                });
+            } else {
+                await interaction.update({
+                    components,
+                    flags: MessageFlags.IsComponentsV2,
+                });
+            }
+            return;
+        }
+
+        // ─── Market Pagination ───
+        if (customId.startsWith('market_page_')) {
+            const parts = customId.split('_');
+            const action = parts[2];
+
+            const PokemonListing = require('../../models/PokemonListing');
+            const totalListings = await PokemonListing.countDocuments({});
+            const totalPages = Math.ceil(totalListings / 5) || 1;
+
+            let currentPage = 1;
+            const pageButton = interaction.message.components.find(c => c.components?.some(b => b.customId?.endsWith('_page')));
+            if (pageButton) {
+                const pageBtnComp = pageButton.components.find(b => b.customId?.endsWith('_page'));
+                if (pageBtnComp?.label) {
+                    currentPage = parseInt(pageBtnComp.label.split('/')[0].trim()) || 1;
+                }
+            }
+
+            let newPage = currentPage;
+            if (action === 'next') newPage = Math.min(totalPages, currentPage + 1);
+            else if (action === 'prev') newPage = Math.max(1, currentPage - 1);
+            else if (action === 'first') newPage = 1;
+            else if (action === 'last') newPage = totalPages;
+
+            await this.renderMarket(interaction, newPage, interaction.user, true);
+            return;
+        }
+
+        // ─── Market Buy Button ───
+        if (customId.startsWith('market_buy_')) {
+            const listingId = customId.replace('market_buy_', '');
+            const PokemonListing = require('../../models/PokemonListing');
+            
+            const listing = await PokemonListing.findById(listingId);
+            if (!listing) {
+                return interaction.reply({ components: [errorContainer('Not Found', 'This listing is no longer available.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            }
+
+            const buyerId = await accountStore.resolveUserId(interaction.user.id);
+            if (buyerId === listing.sellerId) {
+                return interaction.reply({ components: [errorContainer('Invalid', 'You cannot buy your own listing!')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            }
+
+            const result = await pokemonStore.buyPokemon(buyerId, listing.sellerId, listing.pokemonName);
+            
+            if (!result.success) {
+                let msg = 'Transaction failed.';
+                if (result.reason === 'listing_not_found') msg = `Listing is no longer available.`;
+                else if (result.reason === 'insufficient_coins') msg = `Insufficient coins! Cost: **${result.needed.toLocaleString()}**, you have **${result.have.toLocaleString()}**.`;
+                
+                return interaction.reply({ components: [errorContainer('Purchase Failed', msg)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            }
+
+            const sellerDiscordUser = await interaction.client.users.fetch(listing.sellerId).catch(() => ({ username: 'Unknown' }));
+            const container = successContainer('Marketplace Purchase!',
+                `🎉 Successfully bought **${result.pokemonName}** (Lv. ${result.level}) from **${sellerDiscordUser.username}**!\n\n` +
+                `💰 **Paid:** ${result.price.toLocaleString()} ${EMOJIS.COIN}\n` +
+                `✨ *The Pokémon has been added to your collection!*`
+            );
+
+            await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            
+            // Refresh market page so button disappears
+            const currentPage = parseInt(interaction.message.components.find(c => c.components?.some(b => b.customId?.endsWith('_page')))?.components?.find(b => b.customId?.endsWith('_page'))?.label?.split('/')[0]?.trim()) || 1;
+            await this.renderMarket(interaction, currentPage, interaction.user, true);
+            return;
         }
     },
+
+    async renderMarket(interaction, page, author, isUpdate = false) {
+        const PokemonListing = require('../../models/PokemonListing');
+        const limit = 5;
+        const totalListings = await PokemonListing.countDocuments({});
+        const totalPages = Math.ceil(totalListings / limit) || 1;
+        const skip = (page - 1) * limit;
+
+        const listings = await PokemonListing.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit);
+
+        if (listings.length === 0 && page === 1) {
+            const msg = { components: [errorContainer('Empty Market', 'No Pokémon listings available right now.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral };
+            if (isUpdate) return interaction.update(msg);
+            return interaction.reply(msg);
+        }
+
+        const balance = await economyStore.getBalance(await accountStore.resolveUserId(author.id));
+        const { EMOJIS, paginationRow } = require('../../utils/componentBuilder');
+
+        const container = new ContainerBuilder().setAccentColor(COLORS.ECONOMY)
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🏪 Player Market`))
+            .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`💰 **Your Balance:** ${balance.pokecoins.toLocaleString()} ${EMOJIS.COIN}`));
+
+        const buyRow = new ActionRowBuilder();
+
+        for (const l of listings) {
+            const sellerName = await accountStore.getLeaderboardName(l.sellerId);
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                `🏷️ **${l.pokemonName}** (Lv. ${l.level})\n` +
+                `💰 **Price:** ${l.price.toLocaleString()} ${EMOJIS.COIN}\n` +
+                `> Seller: ${sellerName}`
+            ));
+
+            buyRow.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`market_buy_${l._id}`)
+                    .setLabel(`Buy ${l.pokemonName}`)
+                    .setStyle(ButtonStyle.Success)
+            );
+        }
+
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Page ${page}/${totalPages} · Use buttons to navigate or purchase`));
+
+        const pagRow = paginationRow(`market_page`, page, totalPages);
+        container.addActionRowComponents(buyRow);
+        container.addActionRowComponents(pagRow);
+        const components = [container];
+
+        if (isUpdate) {
+            await interaction.editReply({ components, flags: MessageFlags.IsComponentsV2 }).catch(() => interaction.update({ components, flags: MessageFlags.IsComponentsV2 }));
+        } else {
+            await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+        }
+    }
 };
 
 function buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSelf) {
@@ -314,13 +459,29 @@ function buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSel
 
     const container = new ContainerBuilder().setAccentColor(COLORS.CELESTIA);
 
-    // Header
-    container.addTextDisplayComponents(
+    const section = new SectionBuilder();
+    section.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-            `## 📦 ${isSelf ? 'Your' : `${targetUser.username}'s`} Pokémon Collection\n` +
+            `👤 **Trainer:** ${targetUser.username}\n\n` +
             `> 🎯 **${stats.total}** caught · **${stats.unique}** unique species`
         )
     );
+    if (targetUser.displayAvatarURL) {
+        section.setThumbnailAccessory(new ThumbnailBuilder().setURL(targetUser.displayAvatarURL({ size: 128 })));
+    }
+
+    // Header
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            `## 📦 ${isSelf ? 'Your' : `${targetUser.username}'s`} Pokémon Collection`
+        )
+    );
+
+    container.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    );
+
+    container.addSectionComponents(section);
 
     container.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
@@ -339,41 +500,34 @@ function buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSel
         const staticData = pokemonStore.getStaticData(p.name);
         const typeStr = staticData?.types ? staticData.types.join('/') : '';
 
-        container.addTextDisplayComponents(
+        const entrySection = new SectionBuilder();
+        entrySection.addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
                 `**\`${String(globalIdx).padStart(3, '0')}\`** · **${p.name}**${rarityIcon} — ×${p.count}\n` +
                 `> Lv. ${p.bestLevel} ${rank}${typeStr ? ` · ${typeStr}` : ''}`
             )
         );
-    }
 
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
+        const encodedName = encodeURIComponent(p.name).substring(0, 60);
+        entrySection.setButtonAccessory(
+            new ButtonBuilder()
+                .setCustomId(`pkdet_${targetUser.id}_${encodedName}`)
+                .setEmoji('📋')
+                .setLabel('Details')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        container.addSectionComponents(entrySection);
+        container.addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
+    }
 
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-            `-# Page ${page}/${totalPages} · Use the buttons below to navigate or view details`
+            `-# Page ${page}/${totalPages} · Use the buttons below to navigate`
         )
     );
 
     return container;
-}
-
-function buildDetailButtons(pokedex, page, targetUserId) {
-    const start = (page - 1) * PER_PAGE;
-    const pageItems = pokedex.slice(start, start + PER_PAGE);
-    if (pageItems.length === 0) return null;
-
-    const row = new ActionRowBuilder();
-    for (const p of pageItems) {
-        const encodedName = encodeURIComponent(p.name).substring(0, 60);
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`pkdet_${targetUserId}_${encodedName}`)
-                .setLabel(p.name.substring(0, 20))
-                .setStyle(ButtonStyle.Secondary)
-        );
-    }
-    return row;
 }

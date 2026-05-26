@@ -13,7 +13,9 @@ const playerWalletSchema = new mongoose.Schema({
     inventory:  { type: [inventoryItemSchema], default: [] },
     lastDaily:  { type: Date, default: null },   // Last daily reward claim timestamp
     lastWeekly: { type: Date, default: null },   // Last weekly reward claim timestamp
+    lastMonthly: { type: Date, default: null },  // Last monthly reward claim timestamp
     lastSummon: { type: Date, default: null },   // Last Summoning Candle usage timestamp
+    cooldownBypass: { type: Boolean, default: false }, // Admin flag to bypass catch/summon cooldowns
     createdAt:  { type: Date, default: Date.now },
 });
 

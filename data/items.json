@@ -2,7 +2,7 @@
   {
     "id": "pokeball",
     "displayName": "Pokéball",
-    "emoji": "🔴",
+    "emoji": "<:Pokemon:1508753880782209085>",
     "description": "Used to catch wild Pokémon. Each attempt consumes one ball.",
     "price": 250,
     "quantity": 10,
@@ -12,45 +12,45 @@
   {
     "id": "level orb",
     "displayName": "Level Orb",
-    "emoji": "🔮",
+    "emoji": "<a:crystal:1508755858211864596>",
     "description": "An ancient, glowing orb filled with concentrated energy that increases a Pokémon's level. Gives a Pokémon random bonus levels (up to Lv.100). 60% success rate.",
     "price": 800,
     "quantity": 1,
     "category": "Training",
     "aliases": ["level orb", "levelorb", "orb", "orbs"],
-    "guide": "🔮 *ITEM GUIDE: LEVEL ORB* 🔮\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nAn ancient, glowing orb filled with concentrated energy that increases a Pokémon's level.\n\nℹ️ *How it works:*\n• *Level Boost:* Grants a direct +5 levels boost to your captured Pokémon.\n• *Max Level Cap:* Can be used up to Level 100 maximum.\n• *Shatter Chance:* Due to unstable magical energy, there is a small chance the orb shatters without granting levels.\n\n✍️ *Usage Command:*\n`-pokeuse level orb <pokemon_name>`\n_Example:_ `-pokeuse level orb Pikachu`\n\n🛒 *Price:* Available in the PokéMart."
+    "guide": "<a:crystal:1508755858211864596> *ITEM GUIDE: LEVEL ORB* <a:crystal:1508755858211864596>\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nAn ancient, glowing orb filled with concentrated energy that increases a Pokémon's level.\n\nℹ️ *How it works:*\n• *Level Boost:* Grants a direct +5 levels boost to your captured Pokémon.\n• *Max Level Cap:* Can be used up to Level 100 maximum.\n• *Shatter Chance:* Due to unstable magical energy, there is a small chance the orb shatters without granting levels.\n\n✍️ *Usage Command:*\n`/pokeuse level orb <pokemon_name>`\n_Example:_ `/pokeuse level orb Pikachu`\n\n🛒 *Price:* Available in the PokéMart."
   },
   {
     "id": "summoning candle",
     "displayName": "Summoning Candle",
-    "emoji": "🕯️",
+    "emoji": "<a:candle:1508754473680502855>",
     "description": "Summon a specific Pokémon! Only you can catch it. 3 tries, 50/50 chance, 2 balls per try.",
     "price": 4000,
     "quantity": 1,
     "category": "Summoning",
     "aliases": ["summoning candle", "summoningcandle", "candle", "candles"],
-    "guide": "🕯️ *ITEM GUIDE: SUMMONING CANDLE* 🕯️\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nLits a mystic flame that summons any card variant matching the chosen Pokémon species at random.\n\nℹ️ *How it works:*\n• *Dex ID Variants:* Summoning a base name like \"Mew\" picks between Mew, Mew-EX, Shining Mew, or any other Mew card at random!\n• *Exclusive Catch:* Lock-on security! Only the summoner who lit the candle can catch this Pokémon.\n• *No Despawn:* Stays indefinitely until caught or all tries are spent.\n• *Catch Costs:* Costs 2 Pokéballs per try, lasting up to 3 tries.\n• *Daily Limit:* You can only use 1 Summoning Candle per 24 hours (1-day cooldown).\n\n🎯 *Escalating Catch Odds:*\n• Try 1: 50% catch chance\n• Try 2: 65% catch chance\n• Try 3: 75% catch chance\n\n✍️ *Usage Command:*\n`-pokeuse summoning candle <pokemon_name>`\n_Example:_ `-pokeuse summoning candle Mewtwo`\n\n🛒 *Price:* 4,000 PokéCoins at the PokéMart."
+    "guide": "<a:candle:1508754473680502855> *ITEM GUIDE: SUMMONING CANDLE* <a:candle:1508754473680502855>\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nLits a mystic flame that summons any card variant matching the chosen Pokémon species at random.\n\nℹ️ *How it works:*\n• *Dex ID Variants:* Summoning a base name like \"Mew\" picks between Mew, Mew-EX, Shining Mew, or any other Mew card at random!\n• *Exclusive Catch:* Lock-on security! Only the summoner who lit the candle can catch this Pokémon.\n• *No Despawn:* Stays indefinitely until caught or all tries are spent.\n• *Catch Costs:* Costs 2 <:Pokemon:1508753880782209085> Pokéballs per try, lasting up to 3 tries.\n• *Daily Limit:* You can only use 1 Summoning Candle per 24 hours (1-day cooldown).\n\n🎯 *Escalating Catch Odds:*\n• Try 1: 50% catch chance\n• Try 2: 65% catch chance\n• Try 3: 75% catch chance\n\n✍️ *Usage Command:*\n`/pokeuse summoning candle <pokemon_name>`\n_Example:_ `/pokeuse summoning candle Mewtwo`\n\n🛒 *Price:* 4,000 <:pokecoins:1508755286784086037> PokéCoins at the PokéMart."
   },
   {
     "id": "raid pass",
     "displayName": "Raid Pass",
-    "emoji": "🎟️",
+    "emoji": "<a:RaidPasses:1508756029259911239>",
     "description": "Used to enter hourly Epic Pokémon Raids. Face giant Legendary & Mythical bosses with your team!",
     "price": 2000,
     "quantity": 1,
     "category": "Raid",
     "aliases": ["raid pass", "raidpass", "pass", "passes"],
-    "guide": "🎟️ *ITEM GUIDE: RAID PASS* 🎟️\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nAn official ticket to participate in hourly Co-op Raid Battles against Legendary, Mythical, or Ultra Beast Pokémon.\n\nℹ️ *How it works:*\n• *Hourly Spawns:* Every hour, a massive Raid Boss appears.\n• *Entry:* Join using `-raid enter <your_pokemon>` which consumes 1 Raid Pass.\n• *Co-op Battle:* Team up with other trainers in the group to defeat the 100x HP Boss!\n• *Rewards:* If defeated, everyone receives the Raid Pokémon card. The Top Trainer gets a premium variant card and a much higher level!\n\n✍️ *Usage Command:*\n`-raid enter <your_pokemon_name>` during an active Raid!\n\n🛒 *Price:* 2,000 PokéCoins at the PokéMart."
+    "guide": "<a:RaidPasses:1508756029259911239> *ITEM GUIDE: RAID PASS* <a:RaidPasses:1508756029259911239>\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nAn official ticket to participate in hourly Co-op Raid Battles against Legendary, Mythical, or Ultra Beast Pokémon.\n\nℹ️ *How it works:*\n• *Hourly Spawns:* Every hour, a massive Raid Boss appears.\n• *Entry:* Join using `/raid enter <your_pokemon>` which consumes 1 Raid Pass.\n• *Co-op Battle:* Team up with other trainers in the group to defeat the 100x HP Boss!\n• *Rewards:* If defeated, everyone receives the Raid Pokémon card. The Top Trainer gets a premium variant card and a much higher level!\n\n✍️ *Usage Command:*\n`/raid enter <your_pokemon_name>` during an active Raid!\n\n🛒 *Price:* 2,000 <:pokecoins:1508755286784086037> PokéCoins at the PokéMart."
   },
   {
     "id": "wishing compass",
     "displayName": "Wishing Compass",
-    "emoji": "🧭",
+    "emoji": "<:compass:1508756257840824340>",
     "description": "A mystical compass forged from Radiant Crystals that guides your fate on the Celestia Radiant Banner. Used for the gacha system.",
     "price": 160,
     "quantity": 1,
     "category": "Gacha",
     "aliases": ["wishing compass", "wishingcompass", "compass", "wish compass"],
-    "guide": "🧭 *ITEM GUIDE: WISHING COMPASS* 🧭\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nA mystical compass forged from Radiant Crystals that channels cosmic energy into a single wish on the Celestia Radiant Banner.\n\nℹ️ *How it works:*\n• *Currency:* Costs 160 Radiant Crystals (NOT PokéCoins!).\n• *Gacha Pull:* Each Wishing Compass grants 1 wish.\n• *Max Session:* Use up to 10 Wishing Compasses in one session.\n• *5★ Featured:* Palkia (with Genshin-style pity system)\n• *4★ Pool:* Eevee, Charizard, Flareon\n• *3★ Reward:* Level Orb ×1\n• *Pity System:* Soft pity at pull 74, hard pity at pull 90!\n• *Variant Roll:* 50% base form, 50% random variant card!\n• *Gacha Stats:* All gacha Pokémon are Lv. 100 with 2× max stats!\n\n✍️ *Usage Command:*\n`-wish [1-10]`\n_Example:_ `-wish 10` for a 10-pull session\n\n🛒 *Price:* 160 Radiant Crystals per compass.\n\n💎 *Earning Radiant Crystals:*\n• Catch a Legendary Pokémon: +80 crystals\n• Catch a Mythical Pokémon: +160 crystals\n• Win a Raid: +480 crystals per player"
+    "guide": "<:compass:1508756257840824340> *ITEM GUIDE: WISHING COMPASS* <:compass:1508756257840824340>\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📖 *Description:*\nA mystical compass forged from Radiant Crystals that channels cosmic energy into a single wish on the Celestia Radiant Banner.\n\nℹ️ *How it works:*\n• *Currency:* Costs 160 <:Crystal:1508755711348445214> Radiant Crystals (NOT <:pokecoins:1508755286784086037> PokéCoins!).\n• *Gacha Pull:* Each Wishing Compass grants 1 wish.\n• *Max Session:* Use up to 10 Wishing Compasses in one session.\n• *5★ Featured:* Palkia (with Genshin-style pity system)\n• *4★ Pool:* Eevee, Charizard, Flareon\n• *3★ Reward:* Level Orb ×1\n• *Pity System:* Soft pity at pull 74, hard pity at pull 90!\n• *Variant Roll:* 50% base form, 50% random variant card!\n• *Gacha Stats:* All gacha Pokémon are Lv. 100 with 2× max stats!\n\n✍️ *Usage Command:*\n`/wish [1-10]`\n_Example:_ `/wish 10` for a 10-pull session\n\n🛒 *Price:* 160 <:Crystal:1508755711348445214> Radiant Crystals per compass.\n\n💎 *Earning Radiant Crystals:*\n• Catch a Legendary Pokémon: +80 <:Crystal:1508755711348445214>\n• Catch a Mythical Pokémon: +160 <:Crystal:1508755711348445214>\n• Win a Raid: +480 <:Crystal:1508755711348445214> per player"
   }
 ]
