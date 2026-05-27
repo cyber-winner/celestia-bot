@@ -704,21 +704,13 @@ async function checkPrestigeEligibility(userId) {
 
     const allEntries = await PokemonEntry.find({ userId });
     const pokemonStore = require('./pokemonStore');
-    const uniqueIds = new Set(allEntries.map(e => e.dexId || pokemonStore.getDexId(e.pokemonName)));
-    uniqueIds.delete(0);
-    uniqueIds.delete(undefined);
-
-    if (uniqueIds.size < reqs.minDex) {
-        return { eligible: false, reason: 'insufficient_dex', have: uniqueIds.size, need: reqs.minDex, requirements: reqs };
+    if (allEntries.length < reqs.minDex) {
+        return { eligible: false, reason: 'insufficient_dex', have: allEntries.length, need: reqs.minDex, requirements: reqs };
     }
 
     const qualifyingPokemon = allEntries.filter(e => e.level >= reqs.minPokemonLevel);
-    const uniqueQualifying = new Set(qualifyingPokemon.map(e => e.dexId || pokemonStore.getDexId(e.pokemonName)));
-    uniqueQualifying.delete(0);
-    uniqueQualifying.delete(undefined);
-
-    if (uniqueQualifying.size < reqs.minLeveledPokemon) {
-        return { eligible: false, reason: 'insufficient_leveled', have: uniqueQualifying.size, need: reqs.minLeveledPokemon, minLevel: reqs.minPokemonLevel, requirements: reqs };
+    if (qualifyingPokemon.length < reqs.minLeveledPokemon) {
+        return { eligible: false, reason: 'insufficient_leveled', have: qualifyingPokemon.length, need: reqs.minLeveledPokemon, minLevel: reqs.minPokemonLevel, requirements: reqs };
     }
 
     if (wallet.pokecoins < reqs.minCoins) {
@@ -786,9 +778,8 @@ async function checkOmegaEligibility(userId) {
     }
 
     const qualifyingPokemon = allEntries.filter(e => e.level >= reqs.minPokemonLevel);
-    const uniqueQualifying = new Set(qualifyingPokemon.map(e => e.pokemonName));
-    if (uniqueQualifying.size < reqs.minLeveledPokemon) {
-        return { eligible: false, reason: 'insufficient_leveled', have: uniqueQualifying.size, need: reqs.minLeveledPokemon, minLevel: reqs.minPokemonLevel, requirements: reqs };
+    if (qualifyingPokemon.length < reqs.minLeveledPokemon) {
+        return { eligible: false, reason: 'insufficient_leveled', have: qualifyingPokemon.length, need: reqs.minLeveledPokemon, minLevel: reqs.minPokemonLevel, requirements: reqs };
     }
 
     return { eligible: true, requirements: reqs, wallet };
@@ -880,7 +871,6 @@ async function getUserProfile(userId) {
 
     let legendariesCaught = 0;
     let mythicalsCaught = 0;
-    const pokemonStore = require('./pokemonStore');
     for (const entry of allEntries) {
         const meta = pokemonStore.pokemonMetaMap[entry.pokemonName.toLowerCase()];
         if (meta) {

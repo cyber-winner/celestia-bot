@@ -30,7 +30,7 @@ module.exports = {
                 let failMsg = '';
                 switch (eligibility.reason) {
                     case 'insufficient_dex':
-                        failMsg = `📖 **Unique Pokémon in Pokédex:** ${eligibility.have} / ${reqs.minDex}`;
+                        failMsg = `📖 **Total Pokémon Caught:** ${eligibility.have} / ${reqs.minDex}`;
                         break;
                     case 'insufficient_leveled':
                         failMsg = `📊 **Lv.${reqs.minPokemonLevel}+ Pokémon:** ${eligibility.have} / ${reqs.minLeveledPokemon}`;
@@ -47,7 +47,7 @@ module.exports = {
                         `👤 **Trainer:** ${author.username}\n\n` +
                         `**Status:** ${failMsg}\n\n` +
                         `### 📋 Requirements for Prestige:\n` +
-                        `*   📖 **${reqs.minDex}** unique Pokémon caught in Dex\n` +
+                        `*   📖 **${reqs.minDex}** total Pokémon caught\n` +
                         `*   📊 **${reqs.minLeveledPokemon}** Pokémon at **Lv.${reqs.minPokemonLevel}+**\n` +
                         `*   💰 **${reqs.minCoins.toLocaleString()}** PokéCoins in wallet`
                     ))
