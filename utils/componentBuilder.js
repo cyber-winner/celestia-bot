@@ -61,12 +61,14 @@ function getTypeColor(types) {
 /**
  * Get rank badge based on level.
  */
-function getRankBadge(level) {
-    if (level >= 91) return '🔥 S-Rank';
-    if (level >= 81) return '⭐ A-Rank';
-    if (level >= 71) return '🟢 B-Rank';
-    if (level >= 61) return '🔵 C-Rank';
-    if (level >= 51) return '🟣 D-Rank';
+function getRankBadge(level, levelCap = 100) {
+    if (!levelCap || levelCap < 100) levelCap = 100;
+    const ratio = level / levelCap;
+    if (ratio > 0.90) return '🔥 S-Rank';
+    if (ratio > 0.80) return '⭐ A-Rank';
+    if (ratio > 0.70) return '🟢 B-Rank';
+    if (ratio > 0.60) return '🔵 C-Rank';
+    if (ratio > 0.50) return '🟣 D-Rank';
     return '⬜ F-Rank';
 }
 
@@ -184,7 +186,7 @@ function paginationRow(prefix, currentPage, totalPages, extraButtons = []) {
  */
 function pokemonDetailContainer(pokemon, extra = {}) {
     const types = (pokemon.types || []).join(' / ') || 'Unknown';
-    const rankBadge = getRankBadge(pokemon.level || pokemon.bestLevel || 0);
+    const rankBadge = getRankBadge(pokemon.level || pokemon.bestLevel || 0, extra.levelCap);
     const rarityTag = getRarityTag(pokemon);
     const color = getTypeColor(pokemon.types);
 

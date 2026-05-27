@@ -18,13 +18,6 @@ module.exports = {
         const userId = await accountStore.resolveUserId(author.id);
         const inventory = await economyStore.getInventory(userId);
 
-        if (inventory.items.length === 0) {
-            return interaction.reply({
-                components: [errorContainer('Empty Inventory', `👤 **${author.username}** has no items yet!\n> Buy items at the PokéMart: \`/pokemart\``)],
-                flags: MessageFlags.IsComponentsV2,
-            });
-        }
-
         const catalog = economyStore.getMarketCatalog();
         let itemsText = '';
         for (const item of inventory.items) {
@@ -38,6 +31,10 @@ module.exports = {
                 }
             }
             itemsText += `${emoji} **${item.itemName}** — ×${item.quantity}\n`;
+        }
+        
+        if (!itemsText) {
+            itemsText = `*No usable items inside your backpack.*\n_-# Buy items at the PokéMart: \`/pokemart\`_`;
         }
         
         const section = new SectionBuilder();

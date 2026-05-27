@@ -227,6 +227,7 @@ async function executeWishes(userId, wishCount, economyStore) {
                     level: 100,  // Gacha Pokémon are always max level
                     dexId: pokemon.id,
                 });
+                await economyStore.addUserXP(userId, 25);
                 result.dbId = entry._id;
                 result.pokemonName = pokemon.name;
                 result.cardImage = pokemon.cardImage;

@@ -157,6 +157,14 @@ module.exports = {
         const winnerPkmn = f1.hp > 0 ? f1 : f2;
         const loserPkmn = f1.hp > 0 ? f2 : f1;
 
+        // Award 10 XP to winner
+        try {
+            const winnerDbId = await accountStore.resolveUserId(winner.id);
+            await economyStore.addUserXP(winnerDbId, 10);
+        } catch (xpErr) {
+            console.error('[Fight XP Reward] Error:', xpErr);
+        }
+
         const container = new ContainerBuilder().setAccentColor(getTypeColor(winnerPkmn.types));
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ⚔️ Pokémon Battle!`));
 
@@ -177,7 +185,7 @@ module.exports = {
             `**${author.username}**'s ${f1.name} (Lv.${f1.level}) vs **${opponent.username}**'s ${f2.name} (Lv.${f2.level})\n\n` +
             `### Battle Log\n${recentLog}\n\n` +
             `### 🏆 Result\n` +
-            `**${winner.username}**'s **${winnerPkmn.name}** wins with ${winnerPkmn.hp}/${winnerPkmn.maxHp} HP remaining!\n` +
+            `**${winner.username}**'s **${winnerPkmn.name}** wins with ${winnerPkmn.hp}/${winnerPkmn.maxHp} HP remaining! (+10 XP)\n` +
             `**${loserPkmn.name}** fainted! 💀`
         ));
 

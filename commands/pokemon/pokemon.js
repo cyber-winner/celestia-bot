@@ -200,9 +200,12 @@ module.exports = {
                 });
             }
 
+            const wallet = await economyStore.getWallet(userId);
+            const levelCap = economyStore.getLevelCap(wallet);
             const container = pokemonDetailContainer(details, {
                 header: `👤 **${targetUser.username}'s** Pokémon Details`,
-                footer: `🗂️ **Owned:** ×${details.count} · **Best Level:** ${details.bestLevel}`
+                footer: `🗂️ **Owned:** ×${details.count} · **Best Level:** ${details.bestLevel}`,
+                levelCap
             });
 
             return interaction.editReply({
@@ -223,8 +226,10 @@ module.exports = {
         const stats = await pokemonStore.getUserStats(userId);
         const totalPages = Math.ceil(pokedex.length / PER_PAGE);
         const page = 1;
+        const wallet = await economyStore.getWallet(userId);
+        const levelCap = economyStore.getLevelCap(wallet);
 
-        const container = buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSelf);
+        const container = buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSelf, levelCap);
         const pagination = paginationRow(`pkmn_${targetUser.id}`, page, totalPages);
         container.addActionRowComponents(pagination);
         const components = [container];
@@ -263,9 +268,12 @@ module.exports = {
                 targetDiscordUser = { username: 'A Trainer' };
             }
 
+            const wallet = await economyStore.getWallet(userId);
+            const levelCap = economyStore.getLevelCap(wallet);
             const container = pokemonDetailContainer(details, {
                 header: `👤 **${targetDiscordUser.username}'s** Pokémon Details`,
-                footer: `🗂️ **Owned:** ×${details.count} · **Best Level:** ${details.bestLevel}`
+                footer: `🗂️ **Owned:** ×${details.count} · **Best Level:** ${details.bestLevel}`,
+                levelCap
             });
 
             return interaction.followUp({
@@ -310,8 +318,10 @@ module.exports = {
                 targetDiscordUser = interaction.user;
             }
             const isSelf = targetUserId === interaction.user.id;
+            const wallet = await economyStore.getWallet(userId);
+            const levelCap = economyStore.getLevelCap(wallet);
 
-            const container = buildCollectionPage(pokedex, newPage, totalPages, stats, targetDiscordUser, isSelf);
+            const container = buildCollectionPage(pokedex, newPage, totalPages, stats, targetDiscordUser, isSelf, levelCap);
             const pagination = paginationRow(`pkmn_${targetUserId}`, newPage, totalPages);
 
             container.addActionRowComponents(pagination);
@@ -467,7 +477,7 @@ module.exports = {
     }
 };
 
-function buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSelf) {
+function buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSelf, levelCap = 100) {
     const start = (page - 1) * PER_PAGE;
     const pageItems = pokedex.slice(start, start + PER_PAGE);
 
@@ -505,7 +515,7 @@ function buildCollectionPage(pokedex, page, totalPages, stats, targetUser, isSel
     for (let i = 0; i < pageItems.length; i++) {
         const p = pageItems[i];
         const globalIdx = start + i + 1;
-        const rank = getRankBadge(p.bestLevel);
+        const rank = getRankBadge(p.bestLevel, levelCap);
         const meta = pokemonStore.pokemonMetaMap[p.name.toLowerCase()] || {};
         let rarityIcon = '';
         if (meta.isLeg) rarityIcon = ' 👑';

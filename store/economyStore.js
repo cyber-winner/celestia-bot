@@ -254,6 +254,7 @@ async function getInventory(userId) {
     return {
         pokecoins: wallet.pokecoins,
         pokeballs: wallet.pokeballs,
+        radiantCrystals: wallet.radiantCrystals || 0,
         items: wallet.inventory,
     };
 }
@@ -360,7 +361,8 @@ async function useLevelOrb(userId, pokemonName) {
     }).sort({ level: -1 });
 
     if (!entry) return { success: false, reason: 'no_pokemon' };
-    if (entry.level >= 100) return { success: false, reason: 'max_level' };
+    const levelCap = getLevelCap(wallet);
+    if (entry.level >= levelCap) return { success: false, reason: 'max_level', cap: levelCap };
 
     // Consume the orb
     orbItem.quantity -= 1;
@@ -382,9 +384,9 @@ async function useLevelOrb(userId, pokemonName) {
     }
 
     // PASS — add random levels
-    const maxGain = 100 - entry.level;
+    const maxGain = levelCap - entry.level;
     const levelsGained = Math.floor(Math.random() * maxGain) + 1;
-    entry.level = Math.min(entry.level + levelsGained, 100);
+    entry.level = Math.min(entry.level + levelsGained, levelCap);
     await entry.save();
 
     return {
@@ -421,21 +423,24 @@ async function getCrystalTop(limit = 10) {
  * Get top players by Net Worth.
  */
 async function getNetWorthTop(limit = 10) {
-    return PlayerWallet.aggregate([
-        {
-            $addFields: {
-                netWorth: {
-                    $add: [
-                        { $ifNull: ["$pokecoins", 0] },
-                        { $multiply: [{ $ifNull: ["$radiantCrystals", 0] }, 1500] },
-                        { $multiply: [{ $ifNull: ["$pokeballs", 0] }, 25] }
-                    ]
-                }
+    const wallets = await PlayerWallet.find({});
+    const results = [];
+
+    for (const w of wallets) {
+        let itemWorth = 0;
+        for (const item of w.inventory || []) {
+            const details = getItemDetails(item.itemName);
+            if (details) {
+                itemWorth += (details.price || 0) * (item.quantity || 0);
             }
-        },
-        { $sort: { netWorth: -1 } },
-        { $limit: limit }
-    ]);
+        }
+        const crystalWorth = (w.radiantCrystals || 0) * 1500;
+        const netWorth = (w.pokecoins || 0) + crystalWorth + itemWorth + ((w.pokeballs || 0) * 25);
+        results.push({ userId: w.userId, netWorth, pokecoins: w.pokecoins, radiantCrystals: w.radiantCrystals || 0, pokeballs: w.pokeballs || 0 });
+    }
+
+    results.sort((a, b) => b.netWorth - a.netWorth);
+    return results.slice(0, limit);
 }
 
 // ─── Daily Reward ───
@@ -669,6 +674,266 @@ async function getRadiantCrystals(userId) {
     return wallet.radiantCrystals || 0;
 }
 
+// ─── Progression System: Level Cap ───
+
+function getLevelCap(walletOrValues) {
+    const prestige = walletOrValues.prestigeLevel || 0;
+    const omega = walletOrValues.omegaLevel || 0;
+    return 100 + (prestige * 100) + (omega * 1000);
+}
+
+async function getLevelCapForUser(userId) {
+    const wallet = await getWallet(userId);
+    return getLevelCap(wallet);
+}
+
+// ─── Prestige System ───
+
+function getPrestigeRequirements(currentPrestige) {
+    return {
+        minDex: 100,
+        minLeveledPokemon: 20,
+        minPokemonLevel: 100 + (currentPrestige * 100),
+        minCoins: 300000 + (currentPrestige * 100000),
+    };
+}
+
+async function checkPrestigeEligibility(userId) {
+    const wallet = await getWallet(userId);
+    const reqs = getPrestigeRequirements(wallet.prestigeLevel);
+
+    const allEntries = await PokemonEntry.find({ userId });
+    const pokemonStore = require('./pokemonStore');
+    const uniqueIds = new Set(allEntries.map(e => e.dexId || pokemonStore.getDexId(e.pokemonName)));
+    uniqueIds.delete(0);
+    uniqueIds.delete(undefined);
+
+    if (uniqueIds.size < reqs.minDex) {
+        return { eligible: false, reason: 'insufficient_dex', have: uniqueIds.size, need: reqs.minDex, requirements: reqs };
+    }
+
+    const qualifyingPokemon = allEntries.filter(e => e.level >= reqs.minPokemonLevel);
+    const uniqueQualifying = new Set(qualifyingPokemon.map(e => e.dexId || pokemonStore.getDexId(e.pokemonName)));
+    uniqueQualifying.delete(0);
+    uniqueQualifying.delete(undefined);
+
+    if (uniqueQualifying.size < reqs.minLeveledPokemon) {
+        return { eligible: false, reason: 'insufficient_leveled', have: uniqueQualifying.size, need: reqs.minLeveledPokemon, minLevel: reqs.minPokemonLevel, requirements: reqs };
+    }
+
+    if (wallet.pokecoins < reqs.minCoins) {
+        return { eligible: false, reason: 'insufficient_coins', have: wallet.pokecoins, need: reqs.minCoins, requirements: reqs };
+    }
+
+    return { eligible: true, requirements: reqs, wallet };
+}
+
+async function performPrestige(userId) {
+    const eligibility = await checkPrestigeEligibility(userId);
+    if (!eligibility.eligible) return { success: false, ...eligibility };
+
+    const wallet = eligibility.wallet || await getWallet(userId);
+    const reqs = eligibility.requirements;
+
+    wallet.pokecoins -= reqs.minCoins;
+    wallet.prestigeLevel += 1;
+    wallet.totalPrestigeCount += 1;
+    wallet.userXP = (wallet.userXP || 0) + 500;
+
+    wallet.lastDaily = null;
+    wallet.lastWeekly = null;
+    wallet.lastMonthly = null;
+    wallet.lastSummon = null;
+
+    await wallet.save();
+    await PokemonEntry.updateMany({ userId }, { level: 1 });
+
+    return {
+        success: true,
+        newPrestige: wallet.prestigeLevel,
+        newLevelCap: getLevelCap(wallet),
+        coinsDeducted: reqs.minCoins,
+    };
+}
+
+// ─── Omega System ───
+
+function getOmegaRequirements(currentOmega) {
+    return {
+        minPrestige: 10 + currentOmega,
+        minCoins: 1000000,
+        minLeveledPokemon: 30,
+        minPokemonLevel: 500 + (currentOmega * 500),
+        minTotalPokemon: 800,
+    };
+}
+
+async function checkOmegaEligibility(userId) {
+    const wallet = await getWallet(userId);
+    const reqs = getOmegaRequirements(wallet.omegaLevel);
+
+    if (wallet.prestigeLevel < reqs.minPrestige) {
+        return { eligible: false, reason: 'insufficient_prestige', have: wallet.prestigeLevel, need: reqs.minPrestige, requirements: reqs };
+    }
+
+    if (wallet.pokecoins < reqs.minCoins) {
+        return { eligible: false, reason: 'insufficient_coins', have: wallet.pokecoins, need: reqs.minCoins, requirements: reqs };
+    }
+
+    const allEntries = await PokemonEntry.find({ userId });
+    if (allEntries.length < reqs.minTotalPokemon) {
+        return { eligible: false, reason: 'insufficient_pokemon', have: allEntries.length, need: reqs.minTotalPokemon, requirements: reqs };
+    }
+
+    const qualifyingPokemon = allEntries.filter(e => e.level >= reqs.minPokemonLevel);
+    const uniqueQualifying = new Set(qualifyingPokemon.map(e => e.pokemonName));
+    if (uniqueQualifying.size < reqs.minLeveledPokemon) {
+        return { eligible: false, reason: 'insufficient_leveled', have: uniqueQualifying.size, need: reqs.minLeveledPokemon, minLevel: reqs.minPokemonLevel, requirements: reqs };
+    }
+
+    return { eligible: true, requirements: reqs, wallet };
+}
+
+async function performOmega(userId) {
+    const eligibility = await checkOmegaEligibility(userId);
+    if (!eligibility.eligible) return { success: false, ...eligibility };
+
+    const wallet = eligibility.wallet || await getWallet(userId);
+
+    wallet.pokecoins = 0;
+    wallet.pokeballs = 20;
+    
+    // Preserve Wishing Compasses, wipe other items
+    const compassItem = wallet.inventory.find(i => i.itemName === 'Wishing Compass');
+    wallet.inventory = compassItem && compassItem.quantity > 0 ? [compassItem] : [];
+    wallet.prestigeLevel = 0;
+    wallet.omegaLevel += 1;
+    wallet.totalOmegaCount += 1;
+    wallet.userXP = (wallet.userXP || 0) + 2000;
+
+    wallet.lastDaily = null;
+    wallet.lastWeekly = null;
+    wallet.lastMonthly = null;
+    wallet.lastSummon = null;
+
+    await wallet.save();
+    await PokemonEntry.updateMany({ userId }, { level: 1 });
+
+    return {
+        success: true,
+        newOmega: wallet.omegaLevel,
+        newLevelCap: getLevelCap(wallet),
+        summonCandlesPerDay: 5,
+    };
+}
+
+// ─── User XP / Level System ───
+// Progressive scaling: Level 1→2 = 100 XP, each subsequent level +50 more
+// XP for level N to N+1 = 100 + (N-1)*50
+// Total XP to reach level N = 25*(N-1)*(N+2)
+
+function xpForLevel(level) {
+    return 100 + ((level - 1) * 50);
+}
+
+function totalXPForLevel(level) {
+    if (level <= 1) return 0;
+    return 25 * (level - 1) * (level + 2);
+}
+
+function getRankBadge(level, levelCap = 100) {
+    if (!levelCap || levelCap < 100) levelCap = 100;
+    const ratio = level / levelCap;
+    if (ratio > 0.90) return '🔥 S-Rank';
+    if (ratio > 0.80) return '⭐ A-Rank';
+    if (ratio > 0.70) return '🟢 B-Rank';
+    if (ratio > 0.60) return '🔵 C-Rank';
+    if (ratio > 0.50) return '🟣 D-Rank';
+    return '⬜ F-Rank';
+}
+
+function calculateUserLevel(xp) {
+    if (!xp || xp <= 0) return 1;
+    const L = Math.floor((-1 + Math.sqrt(1 + 4 * (2 + xp / 25))) / 2);
+    return Math.max(1, L);
+}
+
+async function addUserXP(userId, amount) {
+    const wallet = await getWallet(userId);
+    wallet.userXP = (wallet.userXP || 0) + amount;
+    await wallet.save();
+    return wallet.userXP;
+}
+
+// ─── Profile ───
+
+async function getUserProfile(userId) {
+    const wallet = await getWallet(userId);
+    const allEntries = await PokemonEntry.find({ userId });
+    const pokemonStore = require('./pokemonStore');
+    const uniqueIds = new Set(allEntries.map(e => e.dexId || pokemonStore.getDexId(e.pokemonName)));
+    uniqueIds.delete(0);
+    uniqueIds.delete(undefined);
+    const bestLevel = allEntries.length > 0 ? Math.max(...allEntries.map(e => e.level)) : 0;
+    const sumLevels = allEntries.reduce((sum, e) => sum + e.level, 0);
+    const avgLevel = allEntries.length > 0 ? Math.round(sumLevels / allEntries.length) : 0;
+
+    let legendariesCaught = 0;
+    let mythicalsCaught = 0;
+    const pokemonStore = require('./pokemonStore');
+    for (const entry of allEntries) {
+        const meta = pokemonStore.pokemonMetaMap[entry.pokemonName.toLowerCase()];
+        if (meta) {
+            if (meta.isLeg) legendariesCaught++;
+            if (meta.isMyth) mythicalsCaught++;
+        }
+    }
+
+    const levelCap = getLevelCap(wallet);
+    const userLevel = calculateUserLevel(wallet.userXP || 0);
+    const xpNeededForNext = totalXPForLevel(userLevel + 1);
+    const xpToNext = xpNeededForNext - (wallet.userXP || 0);
+    const xpForCurrentLevel = xpForLevel(userLevel);
+    const xpProgressInLevel = (wallet.userXP || 0) - totalXPForLevel(userLevel);
+
+    let itemWorth = 0;
+    for (const item of wallet.inventory) {
+        const details = getItemDetails(item.itemName);
+        if (details) {
+            itemWorth += (details.price || 0) * (item.quantity || 0);
+        }
+    }
+    const crystalWorth = (wallet.radiantCrystals || 0) * 1500;
+    const netWorth = wallet.pokecoins + crystalWorth + itemWorth + (wallet.pokeballs * 25);
+
+    return {
+        pokecoins: wallet.pokecoins,
+        pokeballs: wallet.pokeballs,
+        radiantCrystals: wallet.radiantCrystals || 0,
+        prestigeLevel: wallet.prestigeLevel || 0,
+        omegaLevel: wallet.omegaLevel || 0,
+        totalPrestigeCount: wallet.totalPrestigeCount || 0,
+        totalOmegaCount: wallet.totalOmegaCount || 0,
+        userLevel,
+        userXP: wallet.userXP || 0,
+        xpToNext,
+        xpForCurrentLevel,
+        xpProgressInLevel,
+        levelCap,
+        totalPokemon: allEntries.length,
+        uniquePokemon: uniqueIds.size,
+        legendariesCaught,
+        mythicalsCaught,
+        bestLevel,
+        avgLevel,
+        netWorth,
+        itemWorth,
+        crystalWorth,
+        inventory: wallet.inventory,
+        createdAt: wallet.createdAt,
+    };
+}
+
 module.exports = {
     getWallet,
     calculateCoinReward,
@@ -697,5 +962,17 @@ module.exports = {
     addRadiantCrystals,
     deductRadiantCrystals,
     getRadiantCrystals,
+    getLevelCap,
+    getLevelCapForUser,
+    getPrestigeRequirements,
+    checkPrestigeEligibility,
+    performPrestige,
+    getOmegaRequirements,
+    checkOmegaEligibility,
+    performOmega,
+    calculateUserLevel,
+    addUserXP,
+    getUserProfile,
+    getRankBadge,
     MARKET_ITEMS,
 };

@@ -38,7 +38,24 @@ for (const p of POKEMON_LIST) {
 
 function getDexId(pokemonName) {
     if (!pokemonName) return 0;
-    return nameToIdMap[pokemonName.toLowerCase()] || 0;
+    let name = pokemonName.toLowerCase().trim();
+    if (nameToIdMap[name]) return nameToIdMap[name];
+
+    // Clean modifiers
+    name = name
+        .replace(/\b(shiny|gacha|shadow|mega|gigantamax|alolan|galarian|hisuian|paldean)\b/g, '')
+        .replace(/[()[\]{}]/g, '')
+        .trim();
+
+    if (nameToIdMap[name]) return nameToIdMap[name];
+
+    // Fuzzy matching fallback
+    for (const key of Object.keys(nameToIdMap)) {
+        if (name.includes(key) || key.includes(name)) {
+            return nameToIdMap[key];
+        }
+    }
+    return 0;
 }
 
 // ─── In-memory state ───
@@ -258,6 +275,7 @@ async function attemptCatch(channelId, userId, guessedName) {
 
     const coinReward = economyStore.calculateCoinReward(spawn);
     await economyStore.addCoins(userId, coinReward);
+    await economyStore.addUserXP(userId, 10);
 
     let crystalReward = 0;
     if (spawn.isMythical) {
@@ -269,10 +287,17 @@ async function attemptCatch(channelId, userId, guessedName) {
         await economyStore.addRadiantCrystals(userId, crystalReward);
     }
 
+    const wallet = await economyStore.getWallet(userId);
+    const levelCap = economyStore.getLevelCap(wallet);
+    let finalLevel = spawn.level;
+    if (levelCap > 100) {
+        finalLevel = Math.min(levelCap, Math.max(1, Math.round((spawn.level / 100) * levelCap)));
+    }
+
     const entry = await PokemonEntry.create({
         userId,
         pokemonName: spawn.name,
-        level: spawn.level,
+        level: finalLevel,
         dexId: spawn.dexId,
     });
 
@@ -282,7 +307,7 @@ async function attemptCatch(channelId, userId, guessedName) {
         success: true,
         pokemon: {
             name: spawn.name,
-            level: spawn.level,
+            level: finalLevel,
             cardImage: spawn.cardImage,
             spriteUrl: spawn.spriteUrl,
             types: spawn.types,
@@ -460,11 +485,19 @@ async function attemptSummonCatch(channelId, userId, guessedName) {
 
         const coinReward = economyStore.calculateCoinReward(summon);
         await economyStore.addCoins(userId, coinReward);
+        await economyStore.addUserXP(userId, 20);
+
+        const wallet = await economyStore.getWallet(userId);
+        const levelCap = economyStore.getLevelCap(wallet);
+        let finalLevel = summon.level;
+        if (levelCap > 100) {
+            finalLevel = Math.min(levelCap, Math.max(1, Math.round((summon.level / 100) * levelCap)));
+        }
 
         const entry = await PokemonEntry.create({
             userId,
             pokemonName: summon.name,
-            level: summon.level,
+            level: finalLevel,
             dexId: summon.dexId,
         });
 
@@ -474,7 +507,7 @@ async function attemptSummonCatch(channelId, userId, guessedName) {
             success: true,
             catchChance,
             pokemon: {
-                name: summon.name, level: summon.level, cardImage: summon.cardImage,
+                name: summon.name, level: finalLevel, cardImage: summon.cardImage,
                 spriteUrl: summon.spriteUrl, types: summon.types, hp: summon.hp,
                 description: summon.description, attacks: summon.attacks, abilities: summon.abilities,
                 dexId: summon.dexId, baseStats: summon.baseStats, weight: summon.weight,
@@ -523,8 +556,6 @@ async function getTrainerLeaderboard() {
         const speciesId = entry.dexId || getDexId(entry.pokemonName);
         if (speciesId) {
             stats.uniqueIds.add(speciesId);
-        } else {
-            stats.uniqueIds.add(entry.pokemonName.toLowerCase());
         }
 
         if (entry.level > stats.bestLevel) stats.bestLevel = entry.level;

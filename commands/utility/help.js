@@ -354,8 +354,18 @@ module.exports = {
             withResponse: true
         });
 
+        let message;
+        try {
+            if (isInteraction) {
+                message = await interaction.fetchReply();
+            } else {
+                message = response;
+            }
+        } catch (fetchErr) {
+            console.error('[Help Collector] Failed to fetch message:', fetchErr);
+            message = response?.resource?.message || response;
+        }
 
-        const message = response.resource?.message;
         if (!message) return;
 
         const collector = message.createMessageComponentCollector({ time: 300_000 });

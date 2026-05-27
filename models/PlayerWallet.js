@@ -16,6 +16,11 @@ const playerWalletSchema = new mongoose.Schema({
     lastMonthly: { type: Date, default: null },  // Last monthly reward claim timestamp
     lastSummon: { type: Date, default: null },   // Last Summoning Candle usage timestamp
     cooldownBypass: { type: Boolean, default: false }, // Admin flag to bypass catch/summon cooldowns
+    prestigeLevel: { type: Number, default: 0 },  // Current prestige level
+    omegaLevel:    { type: Number, default: 0 },  // Current omega level
+    userXP:        { type: Number, default: 0 },  // Tracks user experience points
+    totalPrestigeCount: { type: Number, default: 0 }, // Lifetime prestige count
+    totalOmegaCount:    { type: Number, default: 0 }, // Lifetime omega count
     createdAt:  { type: Date, default: Date.now },
 });
 
