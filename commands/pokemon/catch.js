@@ -63,6 +63,9 @@ module.exports = {
             if (result.crystalReward > 0) statsText += ` · <:Crystal:1508755711348445214> **+${result.crystalReward} Crystals**`;
             statsText += `\n💼 Wallet: ${result.totalCoins.toLocaleString()} coins\n`;
             statsText += `<:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls} remaining`;
+            if (result.diaperTriesLeft > 0) {
+                statsText += `\n💩 **Diaper Mode:** ${result.diaperTriesLeft} tries remaining`;
+            }
 
             container.addTextDisplayComponents(new TextDisplayBuilder().setContent(statsText));
 
@@ -76,9 +79,7 @@ module.exports = {
                 pokelocked: `Wait for the pokelock penalty to expire before catching again.`,
                 catch_cooldown: `Skip some spawns before trying to catch another Pokémon.`,
                 wand_blocked: `🪄 **Hexed!** You are hexed by an Enchanted Wand and cannot catch Pokémon for the next ${result.wandBlockSpawns} global spawns!`,
-                diaper_mode: `💩 **Diapered!** You are wearing a Dirty Diaper! You cannot use buttons or slash commands to catch. You must type \`celestia catch <pokemon_name>\` in the chat! (${result.diaperModeSpawns} spawns remaining)`,
             };
-            
             const msg = `👤 **${author.username}**: ${msgs[result.reason] || "Catch attempt failed."}`;
             await interaction.reply({
                 components: [errorContainer('Catch Failed', msg)],

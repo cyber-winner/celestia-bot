@@ -68,9 +68,11 @@ module.exports = {
                 if (result.crystalReward > 0) statsText += ` · <:Crystal:1508755711348445214> **+${result.crystalReward} Crystals**`;
                 statsText += `\n💼 Wallet: ${result.totalCoins.toLocaleString()} coins\n`;
                 statsText += `<:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls} remaining`;
+                if (result.diaperTriesLeft > 0) {
+                    statsText += `\n💩 **Diaper Mode:** ${result.diaperTriesLeft} tries remaining`;
+                }
 
                 container.addTextDisplayComponents(new TextDisplayBuilder().setContent(statsText));
-
                 await message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
             } else {
                 const msgs = {

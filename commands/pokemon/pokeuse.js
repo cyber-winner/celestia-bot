@@ -90,7 +90,7 @@ module.exports = {
         } else if (itemName === 'enchanted wand') {
             return this.handleEnchantedWand(interaction, userId, targetUser, author);
         } else if (itemName === 'dirty diaper') {
-            return this.handleDirtyDiaper(interaction, userId, targetUser, author);
+            return this.handleDirtyDiaper(interaction, userId, author);
         } else if (itemName === 'literally karen') {
             return this.handleLiterallyKaren(interaction, userId, author);
         }
@@ -417,22 +417,12 @@ module.exports = {
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     },
 
-    async handleDirtyDiaper(interaction, userId, targetUser, author) {
-        if (!targetUser) {
-            return interaction.reply({
-                components: [errorContainer('Invalid Target', 'Specify a user to target: `/pokeuse item:Dirty Diaper target:@User`')],
-                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-            });
-        }
-
-        const targetId = await accountStore.resolveUserId(targetUser.id);
-        const result = await economyStore.useDirtyDiaper(userId, targetId);
+    async handleDirtyDiaper(interaction, userId, author) {
+        const result = await economyStore.useDirtyDiaper(userId);
 
         if (!result.success) {
             const msgs = {
                 no_diaper: "You don't have a Dirty Diaper! Buy it from `/omegashop`",
-                invalid_target: "You cannot put a diaper on yourself!",
-                target_not_found: "Target user's wallet could not be found.",
             };
             return interaction.reply({
                 components: [errorContainer('Dirty Diaper', msgs[result.reason] || 'Failed.')],
@@ -444,8 +434,8 @@ module.exports = {
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 💩 Diaper Mode Activated!`));
         container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-            `👤 **${author.username}** tossed a **Dirty Diaper** onto **${targetUser.username}**!\n\n` +
-            `💩 **${targetUser.username}** is diapered! They must use the text command \`celestia catch\` to catch Pokémon for the next **20** global spawns!`
+            `👤 **${author.username}** put on a **Dirty Diaper**!\n\n` +
+            `💩 **Diaper Mode** is active! You can bypass the spelling requirement for the next **20** successful catches!`
         ));
 
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });

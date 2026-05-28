@@ -495,11 +495,6 @@ async function handleSpawnCatch(interaction, client) {
             components: [errorContainer('Hexed!', `🪄 You are hexed by an Enchanted Wand and cannot catch Pokémon for the next **${result.wandBlockSpawns}** global spawns!\n⏱️ Ping: \`${reactionTimeMs.toLocaleString()}ms\``)],
             flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
         });
-    } else if (result.reason === 'diaper_mode') {
-        await interaction.followUp({
-            components: [errorContainer('Diapered!', `💩 You are wearing a Dirty Diaper! You cannot use buttons or slash commands to catch. You must type \`celestia catch <pokemon_name>\` in the chat! (**${result.diaperModeSpawns}** spawns remaining)\n⏱️ Ping: \`${reactionTimeMs.toLocaleString()}ms\``)],
-            flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-        });
     } else if (result.reason === 'catch_cooldown') {
         await interaction.followUp({
             components: [errorContainer('Cooldown', `Skip **${result.skipsLeft}** more spawn(s) before catching again.\n⏱️ Ping: \`${reactionTimeMs.toLocaleString()}ms\``)],

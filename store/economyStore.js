@@ -1146,22 +1146,13 @@ async function useEnchantedWand(userId, targetId) {
 }
 
 /**
- * Curses the target: must type 'celestia catch' exactly to catch Pokémon for 20 global spawns.
+ * Activates diaper mode on self: bypasses name spelling checks for 20 successful catches.
  */
-async function useDirtyDiaper(userId, targetId) {
+async function useDirtyDiaper(userId) {
     const wallet = await getWallet(userId);
     const diaperItem = wallet.inventory.find(i => i.itemName === 'Dirty Diaper');
     if (!diaperItem || diaperItem.quantity <= 0) {
         return { success: false, reason: 'no_diaper' };
-    }
-
-    if (!targetId || targetId === userId) {
-        return { success: false, reason: 'invalid_target' };
-    }
-
-    const targetWallet = await getWallet(targetId);
-    if (!targetWallet) {
-        return { success: false, reason: 'target_not_found' };
     }
 
     // Consume the diaper
@@ -1170,13 +1161,11 @@ async function useDirtyDiaper(userId, targetId) {
         wallet.inventory = wallet.inventory.filter(i => i.itemName !== 'Dirty Diaper');
     }
 
-    targetWallet.diaperModeSpawns = 20;
-    await targetWallet.save();
+    wallet.diaperModeSpawns = 20;
     await wallet.save();
 
-    return { success: true, targetId };
+    return { success: true };
 }
-
 /**
  * Removes user's catch cooldown for 30 minutes.
  */

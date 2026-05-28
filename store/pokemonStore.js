@@ -210,11 +210,9 @@ function spawnPokemon(channelId) {
 
     activeSpawns[channelId] = spawn;
 
-    // Decrement diaperModeSpawns and wandBlockSpawns globally on new spawns
+    // Decrement wandBlockSpawns globally on new spawns
     const PlayerWallet = require('../models/PlayerWallet');
     PlayerWallet.updateMany({ wandBlockSpawns: { $gt: 0 } }, { $inc: { wandBlockSpawns: -1 } }).catch(console.error);
-    PlayerWallet.updateMany({ diaperModeSpawns: { $gt: 0 } }, { $inc: { diaperModeSpawns: -1 } }).catch(console.error);
-
     setTimeout(() => {
         if (activeSpawns[channelId] && activeSpawns[channelId].spawnedAt === spawn.spawnedAt) {
             delete activeSpawns[channelId];
@@ -248,18 +246,12 @@ async function attemptCatch(channelId, userId, guessedName, isButtonOrSlash = fa
 
     // Check Literally Karen & Cooldown Bypass
     const hasBypass = wallet && (wallet.cooldownBypass || (wallet.karenExpiry && new Date(wallet.karenExpiry) > new Date()));
-
     // 1. Wand Hex Check
     if (wallet && wallet.wandBlockSpawns > 0) {
         return { success: false, reason: 'wand_blocked', wandBlockSpawns: wallet.wandBlockSpawns };
     }
 
-    // 2. Dirty Diaper Check
-    if (isButtonOrSlash && wallet && wallet.diaperModeSpawns > 0) {
-        return { success: false, reason: 'diaper_mode', diaperModeSpawns: wallet.diaperModeSpawns };
-    }
-
-    // 3. Catch Cooldown Check
+    // 2. Catch Cooldown Check
     if (!hasBypass && isCatchCooledDown(channelId, userId)) {
         const skipsLeft = getCatchCooldownRemaining(channelId, userId);
         return { success: false, reason: 'catch_cooldown', skipsLeft };
@@ -270,7 +262,8 @@ async function attemptCatch(channelId, userId, guessedName, isButtonOrSlash = fa
         return { success: false, reason: 'no_spawn' };
     }
 
-    if (spawn.name.toLowerCase() !== guessedName.toLowerCase()) {
+    const diaperActive = wallet && wallet.diaperModeSpawns > 0;
+    if (!diaperActive && spawn.name.toLowerCase() !== guessedName.toLowerCase()) {
         return { success: false, reason: 'wrong_name' };
     }
 
@@ -295,6 +288,11 @@ async function attemptCatch(channelId, userId, guessedName, isButtonOrSlash = fa
     delete activeSpawns[channelId];
     if (!hasBypass) {
         applyCatchCooldown(channelId, userId);
+    }
+
+    if (wallet && wallet.diaperModeSpawns > 0) {
+        wallet.diaperModeSpawns -= 1;
+        await wallet.save();
     }
 
     const coinReward = economyStore.calculateCoinReward(spawn);
@@ -353,6 +351,7 @@ async function attemptCatch(channelId, userId, guessedName, isButtonOrSlash = fa
         totalCoins: balance.pokecoins,
         totalCrystals: balance.radiantCrystals,
         remainingBalls,
+        diaperTriesLeft: wallet ? wallet.diaperModeSpawns : 0,
     };
 }
 
