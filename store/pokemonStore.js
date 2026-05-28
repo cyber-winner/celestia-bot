@@ -210,6 +210,11 @@ function spawnPokemon(channelId) {
 
     activeSpawns[channelId] = spawn;
 
+    // Decrement diaperModeSpawns and wandBlockSpawns globally on new spawns
+    const PlayerWallet = require('../models/PlayerWallet');
+    PlayerWallet.updateMany({ wandBlockSpawns: { $gt: 0 } }, { $inc: { wandBlockSpawns: -1 } }).catch(console.error);
+    PlayerWallet.updateMany({ diaperModeSpawns: { $gt: 0 } }, { $inc: { diaperModeSpawns: -1 } }).catch(console.error);
+
     setTimeout(() => {
         if (activeSpawns[channelId] && activeSpawns[channelId].spawnedAt === spawn.spawnedAt) {
             delete activeSpawns[channelId];
@@ -237,8 +242,25 @@ function getActiveSpawn(channelId) {
     return spawn;
 }
 
-async function attemptCatch(channelId, userId, guessedName) {
-    if (isCatchCooledDown(channelId, userId)) {
+async function attemptCatch(channelId, userId, guessedName, isButtonOrSlash = false) {
+    const PlayerWallet = require('../models/PlayerWallet');
+    const wallet = await PlayerWallet.findOne({ userId });
+
+    // Check Literally Karen & Cooldown Bypass
+    const hasBypass = wallet && (wallet.cooldownBypass || (wallet.karenExpiry && new Date(wallet.karenExpiry) > new Date()));
+
+    // 1. Wand Hex Check
+    if (wallet && wallet.wandBlockSpawns > 0) {
+        return { success: false, reason: 'wand_blocked', wandBlockSpawns: wallet.wandBlockSpawns };
+    }
+
+    // 2. Dirty Diaper Check
+    if (isButtonOrSlash && wallet && wallet.diaperModeSpawns > 0) {
+        return { success: false, reason: 'diaper_mode', diaperModeSpawns: wallet.diaperModeSpawns };
+    }
+
+    // 3. Catch Cooldown Check
+    if (!hasBypass && isCatchCooledDown(channelId, userId)) {
         const skipsLeft = getCatchCooldownRemaining(channelId, userId);
         return { success: false, reason: 'catch_cooldown', skipsLeft };
     }
@@ -271,7 +293,9 @@ async function attemptCatch(channelId, userId, guessedName) {
     }
 
     delete activeSpawns[channelId];
-    applyCatchCooldown(channelId, userId);
+    if (!hasBypass) {
+        applyCatchCooldown(channelId, userId);
+    }
 
     const coinReward = economyStore.calculateCoinReward(spawn);
     await economyStore.addCoins(userId, coinReward);
@@ -287,8 +311,8 @@ async function attemptCatch(channelId, userId, guessedName) {
         await economyStore.addRadiantCrystals(userId, crystalReward);
     }
 
-    const wallet = await economyStore.getWallet(userId);
-    const levelCap = economyStore.getLevelCap(wallet);
+    const userWallet = await economyStore.getWallet(userId);
+    const levelCap = economyStore.getLevelCap(userWallet);
     let finalLevel = spawn.level;
     if (levelCap > 100) {
         finalLevel = Math.min(levelCap, Math.max(1, Math.round((spawn.level / 100) * levelCap)));

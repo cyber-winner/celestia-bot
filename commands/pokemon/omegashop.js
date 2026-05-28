@@ -1,18 +1,19 @@
 /**
- * /shop — Celestia's Shop with Components V2 and Modals.
+ * /omegashop — Celestia's Omega Shop with Components V2 and Modals.
+ * Items locked behind Prestige requirements.
  */
 const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, SectionBuilder } = require('discord.js');
 const economyStore = require('../../store/economyStore');
 const accountStore = require('../../store/accountStore');
 const { COLORS, errorContainer, successContainer, paginationRow, EMOJIS } = require('../../utils/componentBuilder');
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 4;
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('shop')
-        .setDescription('Browse and buy items from Celestia\'s Shop'),
-    aliases: ['store', 'market'],
+        .setName('omegashop')
+        .setDescription('Browse and buy exclusive items from the Omega Shop (Prestige 1+ required)'),
+    aliases: ['omegamart', 'oshop', 'omegastore'],
 
     async execute(interaction, client, args) {
         const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
@@ -24,41 +25,48 @@ module.exports = {
     },
 
     async renderShop(interaction, userId, page, author, isUpdate = false) {
-        const catalog = economyStore.getMarketCatalog();
+        const catalog = economyStore.getOmegaMarketCatalog();
         const items = Object.values(catalog);
         const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
         const startIndex = (page - 1) * ITEMS_PER_PAGE;
         const pageItems = items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-        
+
         const balance = await economyStore.getBalance(userId);
+        const wallet = await economyStore.getWallet(userId);
+        const prestigeLevel = wallet.prestigeLevel || 0;
 
         const container = new ContainerBuilder()
-            .setAccentColor(COLORS.CELESTIA)
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🏪 Celestia's Shop`))
+            .setAccentColor(0x8B00FF) // Deep purple for omega
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🔮 Omega Shop`))
             .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
             .addTextDisplayComponents(new TextDisplayBuilder().setContent(
-                `💰 **Your Balance:** ${balance.pokecoins.toLocaleString()} ${EMOJIS.COIN} · ${(balance.radiantCrystals || 0).toLocaleString()} ${EMOJIS.CRYSTAL}`
+                `💰 **Your Balance:** ${balance.pokecoins.toLocaleString()} ${EMOJIS.COIN}\n` +
+                `🌟 **Prestige Level:** ${prestigeLevel}\n` +
+                `-# ⚠️ All items require Prestige 1 or above`
             ));
 
         for (const item of pageItems) {
             container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
-            
-            const actualCurrency = item.id === 'wishing compass' ? EMOJIS.CRYSTAL : EMOJIS.COIN;
+
+            const locked = prestigeLevel < (item.requiresPrestige || 0);
+            const lockIcon = locked ? '🔒' : '🔓';
+            const dailyTag = item.dailyLimit > 0 ? ' · 📅 *1/day*' : '';
 
             const itemSection = new SectionBuilder();
             itemSection.addTextDisplayComponents(new TextDisplayBuilder().setContent(
-                `${item.emoji} **${item.displayName}**\n` +
-                `🏷️ **Price:** ${item.price.toLocaleString()} ${actualCurrency}${item.quantity > 1 ? ` (×${item.quantity})` : ''}\n` +
+                `${item.emoji} **${item.displayName}** ${lockIcon}\n` +
+                `🏷️ **Price:** ${item.price.toLocaleString()} ${EMOJIS.COIN}${dailyTag}\n` +
                 `> ${item.description}`
             ));
 
             const safeId = item.id.replace(/\s+/g, '_');
             itemSection.setButtonAccessory(
                 new ButtonBuilder()
-                    .setCustomId(`shop_buy_${safeId}`)
+                    .setCustomId(`oshop_buy_${safeId}`)
                     .setEmoji(item.emoji)
                     .setLabel('Buy')
-                    .setStyle(ButtonStyle.Success)
+                    .setStyle(locked ? ButtonStyle.Secondary : ButtonStyle.Success)
+                    .setDisabled(locked)
             );
 
             container.addSectionComponents(itemSection);
@@ -67,7 +75,7 @@ module.exports = {
         container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Page ${page}/${totalPages} · Use buttons to navigate`));
 
-        const pagRow = paginationRow(`shop_page_${author.id}`, page, totalPages);
+        const pagRow = paginationRow(`oshop_page_${author.id}`, page, totalPages);
         container.addActionRowComponents(pagRow);
         const components = [container];
 
@@ -78,15 +86,19 @@ module.exports = {
                 await interaction.update({ components, flags: MessageFlags.IsComponentsV2 }).catch(() => {});
             }
         } else {
-            await interaction.editReply({ components, flags: MessageFlags.IsComponentsV2 });
+            if (interaction.deferred || interaction.replied) {
+                await interaction.editReply({ components, flags: MessageFlags.IsComponentsV2 });
+            } else {
+                await interaction.reply({ components, flags: MessageFlags.IsComponentsV2 });
+            }
         }
     },
 
     async handleButton(interaction) {
         const id = interaction.customId;
-        
+
         // Pagination
-        if (id.startsWith('shop_page_')) {
+        if (id.startsWith('oshop_page_')) {
             const parts = id.split('_');
             const targetUserId = parts[2];
             const action = parts[3];
@@ -95,7 +107,7 @@ module.exports = {
                 return interaction.reply({ components: [errorContainer('Unauthorized', `👤 **${interaction.user.username}**: You cannot navigate someone else's shop view.`)], flags: MessageFlags.IsComponentsV2 });
             }
 
-            const catalog = economyStore.getMarketCatalog();
+            const catalog = economyStore.getOmegaMarketCatalog();
             const items = Object.values(catalog);
             const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
 
@@ -120,9 +132,9 @@ module.exports = {
         }
 
         // Buy button triggers Modal
-        if (id.startsWith('shop_buy_')) {
-            const itemId = id.replace('shop_buy_', '').replace(/_/g, ' ');
-            const catalog = economyStore.getMarketCatalog();
+        if (id.startsWith('oshop_buy_')) {
+            const itemId = id.replace('oshop_buy_', '').replace(/_/g, ' ');
+            const catalog = economyStore.getOmegaMarketCatalog();
             let itemDetails = null;
             for (const key of Object.keys(catalog)) {
                 if (key.toLowerCase() === itemId.toLowerCase()) {
@@ -134,7 +146,7 @@ module.exports = {
             if (!itemDetails) return;
 
             const modal = new ModalBuilder()
-                .setCustomId(`shop_modal_${id.replace('shop_buy_', '')}`)
+                .setCustomId(`oshop_modal_${id.replace('oshop_buy_', '')}`)
                 .setTitle(`Purchase ${itemDetails.displayName}`);
 
             const qtyInput = new TextInputBuilder()
@@ -153,9 +165,9 @@ module.exports = {
 
     async handleModal(interaction) {
         const id = interaction.customId;
-        if (!id.startsWith('shop_modal_')) return;
+        if (!id.startsWith('oshop_modal_')) return;
 
-        const itemId = id.replace('shop_modal_', '').replace(/_/g, ' ');
+        const itemId = id.replace('oshop_modal_', '').replace(/_/g, ' ');
         const qtyStr = interaction.fields.getTextInputValue('quantity');
         const quantity = parseInt(qtyStr);
 
@@ -163,7 +175,7 @@ module.exports = {
             return interaction.reply({ components: [errorContainer('Invalid Quantity', `👤 **${interaction.user.username}**: Please enter a valid positive number.`)], flags: MessageFlags.IsComponentsV2 });
         }
 
-        const catalog = economyStore.getMarketCatalog();
+        const catalog = economyStore.getOmegaMarketCatalog();
         let itemDetails = null;
         for (const key of Object.keys(catalog)) {
             if (key.toLowerCase() === itemId.toLowerCase()) {
@@ -173,27 +185,29 @@ module.exports = {
         }
 
         if (!itemDetails) {
-            return interaction.reply({ components: [errorContainer('Not Found', `👤 **${interaction.user.username}**: Item not found in shop.`)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [errorContainer('Not Found', `👤 **${interaction.user.username}**: Item not found in Omega Shop.`)], flags: MessageFlags.IsComponentsV2 });
         }
 
         const userId = await accountStore.resolveUserId(interaction.user.id);
-        const result = await economyStore.buyItem(userId, itemDetails.id, quantity);
+        const result = await economyStore.buyOmegaItem(userId, itemDetails.id, quantity);
 
         if (!result.success) {
-            const currency = itemDetails.id === 'wishing compass' ? 'crystals' : 'coins';
-            const msg = result.reason === `insufficient_${currency}`
-                ? `Not enough ${currency}! Need **${result.needed.toLocaleString()}**, have **${result.have.toLocaleString()}**.`
-                : 'Purchase failed.';
+            let msg = 'Purchase failed.';
+            if (result.reason === 'insufficient_prestige') {
+                msg = `🔒 **Prestige Required!** You need **Prestige ${result.needed}**, you have **Prestige ${result.have}**.`;
+            } else if (result.reason === 'insufficient_coins') {
+                msg = `Not enough PokéCoins! Need **${result.needed.toLocaleString()}**, have **${result.have.toLocaleString()}**.`;
+            } else if (result.reason === 'daily_limit') {
+                msg = `📅 **Daily Limit Reached!** You can only buy this item once per day.\n⏳ Try again in **${result.hours}h ${result.minutes}m**.`;
+            }
             return interaction.reply({ components: [errorContainer('Purchase Failed', `👤 **${interaction.user.username}**: ${msg}`)], flags: MessageFlags.IsComponentsV2 });
         }
-
-        const currencyEmoji = itemDetails.id === 'wishing compass' ? EMOJIS.CRYSTAL : EMOJIS.COIN;
 
         const container = successContainer('Purchase Complete!',
             `👤 **Trainer:** ${interaction.user.username}\n\n` +
             `${itemDetails.emoji} **${result.item}** ×${result.quantity}\n\n` +
-            `💸 **Spent:** ${result.spent.toLocaleString()} ${currencyEmoji}\n` +
-            `💰 **Remaining:** ${result.newBalance.toLocaleString()} ${currencyEmoji}`
+            `💸 **Spent:** ${result.spent.toLocaleString()} ${EMOJIS.COIN}\n` +
+            `💰 **Remaining:** ${result.newBalance.toLocaleString()} ${EMOJIS.COIN}`
         );
 
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });

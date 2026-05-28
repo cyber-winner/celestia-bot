@@ -16,6 +16,10 @@ const playerWalletSchema = new mongoose.Schema({
     lastMonthly: { type: Date, default: null },  // Last monthly reward claim timestamp
     lastSummon: { type: Date, default: null },   // Last Summoning Candle usage timestamp
     cooldownBypass: { type: Boolean, default: false }, // Admin flag to bypass catch/summon cooldowns
+    wandBlockSpawns: { type: Number, default: 0 },    // Spawns remaining where user can't catch (Enchanted Wand)
+    diaperModeSpawns: { type: Number, default: 0 },   // Spawns remaining where user must type 'celestia catch' (Dirty Diaper)
+    karenExpiry: { type: Date, default: null },        // Catch cooldown bypass expiry (Literally Karen)
+    lastOmegaDiaperBuy: { type: Date, default: null }, // Last daily Dirty Diaper purchase timestamp
     prestigeLevel: { type: Number, default: 0 },  // Current prestige level
     omegaLevel:    { type: Number, default: 0 },  // Current omega level
     userXP:        { type: Number, default: 0 },  // Tracks user experience points

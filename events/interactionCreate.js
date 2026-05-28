@@ -177,6 +177,13 @@ module.exports = {
                 return;
             }
 
+            // ─── Omega Shop Quick Buy / Pagination ───
+            if (customId.startsWith('oshop_buy_') || customId.startsWith('oshop_page_')) {
+                try { const omegaShopCmd = require('../commands/pokemon/omegashop'); await omegaShopCmd.handleButton(interaction); }
+                catch (err) { logInteractionError('Omega Shop Button', err); }
+                return;
+            }
+
             // ─── Level Orb Retry / Buy & Use ───
             if (customId.startsWith('orb_retry_') || customId.startsWith('orb_buyuse_')) {
                 return handleOrbButton(interaction);
@@ -258,6 +265,12 @@ module.exports = {
             if (interaction.customId.startsWith('shop_modal_')) {
                 try { const shopCmd = require('../commands/pokemon/shop'); await shopCmd.handleModal(interaction); }
                 catch (err) { console.error('[Shop Modal]', err); }
+                return;
+            }
+
+            if (interaction.customId.startsWith('oshop_modal_')) {
+                try { const omegaShopCmd = require('../commands/pokemon/omegashop'); await omegaShopCmd.handleModal(interaction); }
+                catch (err) { console.error('[Omega Shop Modal]', err); }
                 return;
             }
         }
@@ -477,6 +490,16 @@ async function handleSpawnCatch(interaction, client) {
 
         await interaction.followUp({ components: [container.addActionRowComponents(row)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
 
+    } else if (result.reason === 'wand_blocked') {
+        await interaction.followUp({
+            components: [errorContainer('Hexed!', `🪄 You are hexed by an Enchanted Wand and cannot catch Pokémon for the next **${result.wandBlockSpawns}** global spawns!\n⏱️ Ping: \`${reactionTimeMs.toLocaleString()}ms\``)],
+            flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+        });
+    } else if (result.reason === 'diaper_mode') {
+        await interaction.followUp({
+            components: [errorContainer('Diapered!', `💩 You are wearing a Dirty Diaper! You cannot use buttons or slash commands to catch. You must type \`celestia catch <pokemon_name>\` in the chat! (**${result.diaperModeSpawns}** spawns remaining)\n⏱️ Ping: \`${reactionTimeMs.toLocaleString()}ms\``)],
+            flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+        });
     } else if (result.reason === 'catch_cooldown') {
         await interaction.followUp({
             components: [errorContainer('Cooldown', `Skip **${result.skipsLeft}** more spawn(s) before catching again.\n⏱️ Ping: \`${reactionTimeMs.toLocaleString()}ms\``)],

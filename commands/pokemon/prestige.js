@@ -17,10 +17,6 @@ module.exports = {
         const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
         const author = isInteraction ? interaction.user : interaction.author;
 
-        if (isInteraction) {
-            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
-        }
-
         try {
             const dbUserId = await accountStore.resolveUserId(author.id);
             const eligibility = await economyStore.checkPrestigeEligibility(dbUserId);

@@ -35,7 +35,7 @@ module.exports = {
         }
 
         // ─── Case 2: Normal wild spawn catch ───
-        const result = await pokemonStore.attemptCatch(channelId, userId, guessedName);
+        const result = await pokemonStore.attemptCatch(channelId, userId, guessedName, true);
 
         if (result.success) {
             const p = result.pokemon;
@@ -75,6 +75,8 @@ module.exports = {
                 too_fast: "You tried to catch too quickly! Try again in a few seconds.",
                 pokelocked: `Wait for the pokelock penalty to expire before catching again.`,
                 catch_cooldown: `Skip some spawns before trying to catch another Pokémon.`,
+                wand_blocked: `🪄 **Hexed!** You are hexed by an Enchanted Wand and cannot catch Pokémon for the next ${result.wandBlockSpawns} global spawns!`,
+                diaper_mode: `💩 **Diapered!** You are wearing a Dirty Diaper! You cannot use buttons or slash commands to catch. You must type \`celestia catch <pokemon_name>\` in the chat! (${result.diaperModeSpawns} spawns remaining)`,
             };
             
             const msg = `👤 **${author.username}**: ${msgs[result.reason] || "Catch attempt failed."}`;

@@ -12,8 +12,16 @@ module.exports = {
         .setName('pokeuse')
         .setDescription('Use an item from your inventory')
         .addStringOption(opt => opt.setName('item').setDescription('Item to use').setRequired(true)
-            .addChoices({ name: 'Level Orb', value: 'level orb' }, { name: 'Summoning Candle', value: 'summoning candle' }))
-        .addStringOption(opt => opt.setName('pokemon').setDescription('Pokémon name to use item on').setRequired(true)),
+            .addChoices(
+                { name: 'Level Orb', value: 'level orb' },
+                { name: 'Summoning Candle', value: 'summoning candle' },
+                { name: 'Enchanted Stardust', value: 'enchanted stardust' },
+                { name: 'Enchanted Wand', value: 'enchanted wand' },
+                { name: 'Dirty Diaper', value: 'dirty diaper' },
+                { name: 'Literally Karen', value: 'literally karen' }
+            ))
+        .addStringOption(opt => opt.setName('pokemon').setDescription('Pokémon name (for Level Orb, Summon, Stardust)').setRequired(false))
+        .addUserOption(opt => opt.setName('target').setDescription('User to target (for Enchanted Wand/Dirty Diaper)').setRequired(false)),
     aliases: ['use'],
 
     async execute(interaction, client, args) {
@@ -23,41 +31,68 @@ module.exports = {
 
         let itemName = null;
         let pokemonName = null;
+        let targetUser = null;
 
         if (isInteraction) {
             itemName = interaction.options.getString('item');
             pokemonName = interaction.options.getString('pokemon');
+            targetUser = interaction.options.getUser('target');
         } else if (args && args.length > 0) {
             const lowerArg = args.join(' ').toLowerCase();
-            if (lowerArg.startsWith('level orb')) {
+            const mentioned = interaction.mentions ? interaction.mentions.users.first() : null;
+            if (mentioned) {
+                targetUser = mentioned;
+            }
+
+            if (lowerArg.startsWith('level orb') || lowerArg.startsWith('orb')) {
                 itemName = 'level orb';
-                pokemonName = args.slice(2).join(' ');
-            } else if (lowerArg.startsWith('summoning candle')) {
+                pokemonName = args.slice(lowerArg.startsWith('level orb') ? 2 : 1).filter(a => !a.startsWith('<@')).join(' ');
+            } else if (lowerArg.startsWith('summoning candle') || lowerArg.startsWith('candle')) {
                 itemName = 'summoning candle';
-                pokemonName = args.slice(2).join(' ');
-            } else if (lowerArg.startsWith('candle')) {
-                itemName = 'summoning candle';
-                pokemonName = args.slice(1).join(' ');
-            } else if (lowerArg.startsWith('orb')) {
-                itemName = 'level orb';
-                pokemonName = args.slice(1).join(' ');
+                pokemonName = args.slice(lowerArg.startsWith('summoning candle') ? 2 : 1).filter(a => !a.startsWith('<@')).join(' ');
+            } else if (lowerArg.startsWith('enchanted stardust') || lowerArg.startsWith('stardust')) {
+                itemName = 'enchanted stardust';
+                pokemonName = args.slice(lowerArg.startsWith('enchanted stardust') ? 2 : 1).filter(a => !a.startsWith('<@')).join(' ');
+            } else if (lowerArg.startsWith('enchanted wand') || lowerArg.startsWith('wand')) {
+                itemName = 'enchanted wand';
+            } else if (lowerArg.startsWith('dirty diaper') || lowerArg.startsWith('diaper')) {
+                itemName = 'dirty diaper';
+            } else if (lowerArg.startsWith('literally karen') || lowerArg.startsWith('karen')) {
+                itemName = 'literally karen';
             }
         }
 
-        if (!itemName || !pokemonName) {
+        if (!itemName) {
             return (interaction.replied || interaction.deferred) ? interaction.followUp({
-                components: [errorContainer('Invalid Use', 'Specify an item (level orb / summoning candle) and a Pokémon: `!use <item> <pokemon>`')],
+                components: [errorContainer('Invalid Use', 'Specify an item: `/pokeuse item:<name>`')],
                 flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
             }) : interaction.reply({
-                components: [errorContainer('Invalid Use', 'Specify an item (level orb / summoning candle) and a Pokémon: `!use <item> <pokemon>`')],
+                components: [errorContainer('Invalid Use', 'Specify an item: `/pokeuse item:<name>`')],
                 flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
             });
         }
 
         if (itemName === 'level orb') {
+            if (!pokemonName) {
+                return interaction.reply({ components: [errorContainer('Missing Option', 'Specify a Pokémon name to use Level Orb on.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            }
             return this.handleLevelOrb(interaction, userId, pokemonName, author);
         } else if (itemName === 'summoning candle') {
+            if (!pokemonName) {
+                return interaction.reply({ components: [errorContainer('Missing Option', 'Specify a Pokémon name to summon.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            }
             return this.handleSummoningCandle(interaction, userId, pokemonName, author);
+        } else if (itemName === 'enchanted stardust') {
+            if (!pokemonName) {
+                return interaction.reply({ components: [errorContainer('Missing Option', 'Specify a Pokémon name to use Enchanted Stardust on.')], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+            }
+            return this.handleEnchantedStardust(interaction, userId, pokemonName, author);
+        } else if (itemName === 'enchanted wand') {
+            return this.handleEnchantedWand(interaction, userId, targetUser, author);
+        } else if (itemName === 'dirty diaper') {
+            return this.handleDirtyDiaper(interaction, userId, targetUser, author);
+        } else if (itemName === 'literally karen') {
+            return this.handleLiterallyKaren(interaction, userId, author);
         }
     },
 
@@ -299,5 +334,145 @@ module.exports = {
         );
 
         await interaction.reply({ components: [container.addActionRowComponents(catchRow)], flags: MessageFlags.IsComponentsV2 });
+    },
+
+    async handleEnchantedStardust(interaction, userId, pokemonName, author) {
+        const result = await economyStore.useEnchantedStardust(userId, pokemonName);
+
+        if (!result.success) {
+            const msgs = {
+                no_stardust: "You don't have any Enchanted Stardust! Buy it from `/omegashop`",
+                no_pokemon: `You don't own **${pokemonName}**!`,
+                too_close_to_cap: `**${pokemonName}** is too close to its level cap. It must be at least 10 levels below its cap (**Lv. ${result.cap}**) to use Enchanted Stardust. (Current: Lv. ${result.level})`,
+            };
+            return interaction.reply({
+                components: [errorContainer('Enchanted Stardust', msgs[result.reason] || 'Failed.')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        const rankBadge = getRankBadge(result.newLevel);
+        const container = new ContainerBuilder().setAccentColor(COLORS.SUCCESS);
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ✨ Enchanted Stardust Success!`));
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+        const section = new SectionBuilder();
+        section.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+                `👤 **Trainer:** ${author.username}\n` +
+                `🏷️ **${result.pokemonName}**\n` +
+                `📊 Lv. ${result.oldLevel} → **Lv. ${result.newLevel}** (+${result.levelsGained})\n` +
+                `🏅 **Rank:** ${rankBadge}\n\n` +
+                `> *The stardust guarantees a massive level boost with 100% success rate!* 🌟`
+            )
+        );
+        section.setThumbnailAccessory(new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 })));
+        container.addSectionComponents(section);
+
+        await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    },
+
+    async handleEnchantedWand(interaction, userId, targetUser, author) {
+        if (!targetUser) {
+            return interaction.reply({
+                components: [errorContainer('Invalid Target', 'Specify a user to target: `/pokeuse item:Enchanted Wand target:@User`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        const targetId = await accountStore.resolveUserId(targetUser.id);
+        const result = await economyStore.useEnchantedWand(userId, targetId);
+
+        if (!result.success) {
+            const msgs = {
+                no_wand: "You don't have an Enchanted Wand! Buy it from `/omegashop`",
+                invalid_target: "You cannot hex yourself!",
+                target_not_found: "Target user's wallet could not be found.",
+            };
+            return interaction.reply({
+                components: [errorContainer('Enchanted Wand', msgs[result.reason] || 'Failed.')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        const container = new ContainerBuilder();
+        if (result.backfired) {
+            container.setAccentColor(COLORS.DANGER);
+            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🪄 Wand Backfired!`));
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                `👤 **${author.username}** tried to use an **Enchanted Wand** on **${targetUser.username}**, but it backfired!\n\n` +
+                `💀 You are locked out of catching Pokémon for the next **5** global spawns!`
+            ));
+        } else {
+            container.setAccentColor(COLORS.SUCCESS);
+            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🪄 Wand Success!`));
+            container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+            container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                `👤 **${author.username}** hexed **${targetUser.username}** with an **Enchanted Wand**!\n\n` +
+                `🔒 **${targetUser.username}** cannot catch Pokémon for the next **5** global spawns!`
+            ));
+        }
+
+        await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    },
+
+    async handleDirtyDiaper(interaction, userId, targetUser, author) {
+        if (!targetUser) {
+            return interaction.reply({
+                components: [errorContainer('Invalid Target', 'Specify a user to target: `/pokeuse item:Dirty Diaper target:@User`')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        const targetId = await accountStore.resolveUserId(targetUser.id);
+        const result = await economyStore.useDirtyDiaper(userId, targetId);
+
+        if (!result.success) {
+            const msgs = {
+                no_diaper: "You don't have a Dirty Diaper! Buy it from `/omegashop`",
+                invalid_target: "You cannot put a diaper on yourself!",
+                target_not_found: "Target user's wallet could not be found.",
+            };
+            return interaction.reply({
+                components: [errorContainer('Dirty Diaper', msgs[result.reason] || 'Failed.')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        const container = new ContainerBuilder().setAccentColor(COLORS.SUCCESS);
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 💩 Diaper Mode Activated!`));
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+            `👤 **${author.username}** tossed a **Dirty Diaper** onto **${targetUser.username}**!\n\n` +
+            `💩 **${targetUser.username}** is diapered! They must use the text command \`celestia catch\` to catch Pokémon for the next **20** global spawns!`
+        ));
+
+        await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    },
+
+    async handleLiterallyKaren(interaction, userId, author) {
+        const result = await economyStore.useLiterallyKaren(userId);
+
+        if (!result.success) {
+            const msgs = {
+                no_karen: "You don't have a Literally Karen! Buy it from `/omegashop`",
+            };
+            return interaction.reply({
+                components: [errorContainer('Literally Karen', msgs[result.reason] || 'Failed.')],
+                flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+            });
+        }
+
+        const container = new ContainerBuilder().setAccentColor(COLORS.SUCCESS);
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🗣️ Literally Karen Activated!`));
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
+            `👤 **${author.username}** activated **Literally Karen**!\n\n` +
+            `📢 Catch cooldowns will be completely bypassed for the next **30 minutes**!\n` +
+            `⏰ Expiry: <t:${Math.floor(result.expiry.getTime() / 1000)}:R>`
+        ));
+
+        await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     },
 };

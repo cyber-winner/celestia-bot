@@ -33,6 +33,65 @@ module.exports = {
 
         const channelId = message.channel.id;
 
+        // ─── Support "celestia catch <pokemon_name>" text catching ───
+        const contentLower = message.content.toLowerCase().trim();
+        if (contentLower.startsWith('celestia catch')) {
+            let guessedName = message.content.slice('celestia catch'.length).trim();
+            if (!guessedName) return;
+
+            const dbUserId = await accountStore.resolveUserId(message.author.id);
+            const result = await pokemonStore.attemptCatch(channelId, dbUserId, guessedName, false); // false = not button/slash
+
+            if (result.success) {
+                const p = result.pokemon;
+                const typeColor = getTypeColor(p.types);
+                const rankBadge = getRankBadge(p.level);
+                let rarityTag = '⬜ Common';
+                if (p.isLegendary) rarityTag = '👑 LEGENDARY';
+                else if (p.isMythical) rarityTag = '✨ MYTHICAL';
+
+                const container = new ContainerBuilder().setAccentColor(typeColor);
+                container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🎉 Pokémon Captured via Chat!`));
+
+                if (p.cardImage) {
+                    container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.cardImage)));
+                }
+
+                container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+                let statsText = `👤 **Trainer:** ${message.author.username}\n`;
+                statsText += `🏷️ **Pokémon:** ${p.name}\n`;
+                statsText += `📊 **Level:** ${p.level} — ${rankBadge}\n`;
+                statsText += `⭐ **Rarity:** ${rarityTag}\n`;
+                statsText += `🔖 **Type:** ${(p.types || []).join(' / ')}\n\n`;
+                statsText += `💰 **+${result.coinReward} PokéCoins**`;
+                if (result.crystalReward > 0) statsText += ` · <:Crystal:1508755711348445214> **+${result.crystalReward} Crystals**`;
+                statsText += `\n💼 Wallet: ${result.totalCoins.toLocaleString()} coins\n`;
+                statsText += `<:Pokemon:1508753880782209085> Pokéballs: ${result.remainingBalls} remaining`;
+
+                container.addTextDisplayComponents(new TextDisplayBuilder().setContent(statsText));
+
+                await message.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+            } else {
+                const msgs = {
+                    no_spawn: "No wild Pokémon is currently spawned in this channel.",
+                    wrong_name: "That's not the right Pokémon name!",
+                    no_pokeballs: "You don't have enough Pokéballs! Buy more: `/pokemart buy item:pokeball`",
+                    too_fast: "You tried to catch too quickly! Try again in a few seconds.",
+                    pokelocked: `Wait for the pokelock penalty to expire before catching again.`,
+                    catch_cooldown: `Skip some spawns before trying to catch another Pokémon.`,
+                    wand_blocked: `🪄 **Hexed!** You are hexed by an Enchanted Wand and cannot catch Pokémon for the next ${result.wandBlockSpawns} global spawns!`,
+                };
+                
+                const msg = `👤 **${message.author.username}**: ${msgs[result.reason] || "Catch attempt failed."}`;
+                await message.reply({
+                    components: [errorContainer('Catch Failed', msg)],
+                    flags: MessageFlags.IsComponentsV2,
+                });
+            }
+            return;
+        }
+
         // ─── Message counter → spawn every 25 messages ───
         const spawn = pokemonStore.countMessage(channelId);
         if (spawn) {

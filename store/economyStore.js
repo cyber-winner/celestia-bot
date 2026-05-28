@@ -924,6 +924,281 @@ async function getUserProfile(userId) {
     };
 }
 
+// ─── Omega Shop Catalog ───
+
+const omegaItemsList = require('../data/omegaItems.json');
+const OMEGA_MARKET_ITEMS = {};
+for (const item of omegaItemsList) {
+    OMEGA_MARKET_ITEMS[item.id] = {
+        id: item.id,
+        displayName: item.displayName,
+        emoji: item.emoji,
+        description: item.description,
+        price: item.price,
+        quantity: item.quantity,
+        category: item.category,
+        aliases: item.aliases || [],
+        guide: item.guide || '',
+        requiresPrestige: item.requiresPrestige || 0,
+        dailyLimit: item.dailyLimit || 0,
+    };
+}
+
+/**
+ * Find omega item details by its ID, displayName, or aliases.
+ */
+function getOmegaItemDetails(nameOrAlias) {
+    if (!nameOrAlias) return null;
+    const cleaned = nameOrAlias.toLowerCase().trim();
+
+    if (OMEGA_MARKET_ITEMS[cleaned]) {
+        return { id: cleaned, ...OMEGA_MARKET_ITEMS[cleaned] };
+    }
+
+    for (const [id, details] of Object.entries(OMEGA_MARKET_ITEMS)) {
+        if (details.aliases.some(a => a.toLowerCase() === cleaned)) {
+            return { id, ...details };
+        }
+    }
+
+    for (const [id, details] of Object.entries(OMEGA_MARKET_ITEMS)) {
+        if (details.displayName.toLowerCase() === cleaned) {
+            return { id, ...details };
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Get the full omega market catalog.
+ */
+function getOmegaMarketCatalog() {
+    return OMEGA_MARKET_ITEMS;
+}
+
+/**
+ * Buy an item from the Omega Shop.
+ * Checks prestige requirements and daily limits.
+ */
+async function buyOmegaItem(userId, itemKey, qty = 1) {
+    const item = OMEGA_MARKET_ITEMS[itemKey];
+    if (!item) return { success: false, reason: 'not_found' };
+    if (qty < 1) qty = 1;
+
+    const wallet = await getWallet(userId);
+
+    // Check prestige requirement
+    if (item.requiresPrestige > 0 && (wallet.prestigeLevel || 0) < item.requiresPrestige) {
+        return {
+            success: false,
+            reason: 'insufficient_prestige',
+            needed: item.requiresPrestige,
+            have: wallet.prestigeLevel || 0,
+        };
+    }
+
+    // Check daily limit (Dirty Diaper: once per day)
+    if (item.dailyLimit > 0 && itemKey === 'dirty diaper') {
+        if (wallet.lastOmegaDiaperBuy) {
+            const elapsed = Date.now() - wallet.lastOmegaDiaperBuy.getTime();
+            if (elapsed < 24 * 60 * 60 * 1000) {
+                const remaining = (24 * 60 * 60 * 1000) - elapsed;
+                const hours = Math.floor(remaining / (60 * 60 * 1000));
+                const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+                return {
+                    success: false,
+                    reason: 'daily_limit',
+                    hours,
+                    minutes,
+                };
+            }
+        }
+    }
+
+    const totalPrice = item.price * qty;
+    const totalQty = item.quantity * qty;
+
+    if (wallet.pokecoins < totalPrice) {
+        return {
+            success: false,
+            reason: 'insufficient_coins',
+            needed: totalPrice,
+            have: wallet.pokecoins,
+        };
+    }
+
+    wallet.pokecoins -= totalPrice;
+
+    // Add to inventory
+    const existing = wallet.inventory.find(i => i.itemName === item.displayName);
+    if (existing) {
+        existing.quantity += totalQty;
+    } else {
+        wallet.inventory.push({ itemName: item.displayName, quantity: totalQty });
+    }
+
+    // Update daily limit tracking for Dirty Diaper
+    if (item.dailyLimit > 0 && itemKey === 'dirty diaper') {
+        wallet.lastOmegaDiaperBuy = new Date();
+    }
+
+    await wallet.save();
+    return {
+        success: true,
+        item: item.displayName,
+        quantity: totalQty,
+        spent: totalPrice,
+        newBalance: wallet.pokecoins,
+    };
+}
+
+// ─── Enchanted Stardust Usage ───
+
+/**
+ * Use Enchanted Stardust on a Pokémon.
+ * Guaranteed +10 levels, no fail. Random between (current + 10) and levelCap.
+ * Cannot be used if Pokémon is within 10 levels of its cap.
+ */
+async function useEnchantedStardust(userId, pokemonName) {
+    const wallet = await getWallet(userId);
+    const stardustItem = wallet.inventory.find(i => i.itemName === 'Enchanted Stardust');
+    if (!stardustItem || stardustItem.quantity <= 0) {
+        return { success: false, reason: 'no_stardust' };
+    }
+
+    // Find the best-level copy of this Pokémon
+    const entry = await PokemonEntry.findOne({
+        userId,
+        pokemonName: { $regex: new RegExp(`^${pokemonName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+    }).sort({ level: -1 });
+
+    if (!entry) return { success: false, reason: 'no_pokemon' };
+    const levelCap = getLevelCap(wallet);
+
+    // Cannot use if within 10 levels of cap
+    if (entry.level > levelCap - 10) {
+        return { success: false, reason: 'too_close_to_cap', level: entry.level, cap: levelCap };
+    }
+
+    // Consume the stardust
+    stardustItem.quantity -= 1;
+    if (stardustItem.quantity <= 0) {
+        wallet.inventory = wallet.inventory.filter(i => i.itemName !== 'Enchanted Stardust');
+    }
+    await wallet.save();
+
+    // Guaranteed success: random level between (current + 10) and levelCap
+    const minNewLevel = entry.level + 10;
+    const maxNewLevel = levelCap;
+    const newLevel = Math.floor(Math.random() * (maxNewLevel - minNewLevel + 1)) + minNewLevel;
+    const levelsGained = newLevel - entry.level;
+
+    entry.level = newLevel;
+    await entry.save();
+
+    return {
+        success: true,
+        pokemonName: entry.pokemonName,
+        oldLevel: newLevel - levelsGained,
+        newLevel: entry.level,
+        levelsGained,
+    };
+}
+
+/**
+ * PVP Hex: 50% chance to lock target's catch for 5 global spawns,
+ * 50% chance to backfire and lock user instead.
+ */
+async function useEnchantedWand(userId, targetId) {
+    const wallet = await getWallet(userId);
+    const wandItem = wallet.inventory.find(i => i.itemName === 'Enchanted Wand');
+    if (!wandItem || wandItem.quantity <= 0) {
+        return { success: false, reason: 'no_wand' };
+    }
+
+    if (!targetId || targetId === userId) {
+        return { success: false, reason: 'invalid_target' };
+    }
+
+    const targetWallet = await getWallet(targetId);
+    if (!targetWallet) {
+        return { success: false, reason: 'target_not_found' };
+    }
+
+    // Consume the wand
+    wandItem.quantity -= 1;
+    if (wandItem.quantity <= 0) {
+        wallet.inventory = wallet.inventory.filter(i => i.itemName !== 'Enchanted Wand');
+    }
+
+    const success = Math.random() < 0.5;
+    if (success) {
+        targetWallet.wandBlockSpawns = 5;
+        await targetWallet.save();
+        await wallet.save();
+        return { success: true, targetId, backfired: false };
+    } else {
+        wallet.wandBlockSpawns = 5;
+        await wallet.save();
+        return { success: true, targetId, backfired: true };
+    }
+}
+
+/**
+ * Curses the target: must type 'celestia catch' exactly to catch Pokémon for 20 global spawns.
+ */
+async function useDirtyDiaper(userId, targetId) {
+    const wallet = await getWallet(userId);
+    const diaperItem = wallet.inventory.find(i => i.itemName === 'Dirty Diaper');
+    if (!diaperItem || diaperItem.quantity <= 0) {
+        return { success: false, reason: 'no_diaper' };
+    }
+
+    if (!targetId || targetId === userId) {
+        return { success: false, reason: 'invalid_target' };
+    }
+
+    const targetWallet = await getWallet(targetId);
+    if (!targetWallet) {
+        return { success: false, reason: 'target_not_found' };
+    }
+
+    // Consume the diaper
+    diaperItem.quantity -= 1;
+    if (diaperItem.quantity <= 0) {
+        wallet.inventory = wallet.inventory.filter(i => i.itemName !== 'Dirty Diaper');
+    }
+
+    targetWallet.diaperModeSpawns = 20;
+    await targetWallet.save();
+    await wallet.save();
+
+    return { success: true, targetId };
+}
+
+/**
+ * Removes user's catch cooldown for 30 minutes.
+ */
+async function useLiterallyKaren(userId) {
+    const wallet = await getWallet(userId);
+    const karenItem = wallet.inventory.find(i => i.itemName === 'Literally Karen');
+    if (!karenItem || karenItem.quantity <= 0) {
+        return { success: false, reason: 'no_karen' };
+    }
+
+    // Consume the item
+    karenItem.quantity -= 1;
+    if (karenItem.quantity <= 0) {
+        wallet.inventory = wallet.inventory.filter(i => i.itemName !== 'Literally Karen');
+    }
+
+    wallet.karenExpiry = new Date(Date.now() + 30 * 60 * 1000);
+    await wallet.save();
+
+    return { success: true, expiry: wallet.karenExpiry };
+}
+
 module.exports = {
     getWallet,
     calculateCoinReward,
@@ -965,4 +1240,14 @@ module.exports = {
     getUserProfile,
     getRankBadge,
     MARKET_ITEMS,
+    // Omega Shop
+    OMEGA_MARKET_ITEMS,
+    getOmegaItemDetails,
+    getOmegaMarketCatalog,
+    buyOmegaItem,
+    useEnchantedStardust,
+    useEnchantedWand,
+    useDirtyDiaper,
+    useLiterallyKaren,
 };
+

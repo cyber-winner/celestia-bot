@@ -26,9 +26,6 @@ module.exports = {
             targetUser = interaction.mentions?.users?.first() || interaction.author || interaction.user;
         }
 
-        if (isInteraction) {
-            await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
-        }
 
         try {
             const dbUserId = await accountStore.resolveUserId(targetUser.id);
