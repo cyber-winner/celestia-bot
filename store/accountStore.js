@@ -293,6 +293,11 @@ async function migrateGameData(fromUserId, toUserId) {
             toWallet.lastSummon = fromWallet.lastSummon;
         }
 
+        // Merge ToS acceptance version
+        if (fromWallet.tosVersion && (!toWallet.tosVersion || fromWallet.tosVersion > toWallet.tosVersion)) {
+            toWallet.tosVersion = fromWallet.tosVersion;
+        }
+
         await toWallet.save();
         await PlayerWallet.deleteOne({ userId: fromUserId });
     } else if (fromWallet && !toWallet) {

@@ -38,9 +38,25 @@ async function loadAll() {
  * @param {string} resolvedUserId - The resolved (linked) userId from accountStore
  * @param {string} discordUserId - The raw Discord user ID
  */
-function hasAcceptedToS(resolvedUserId, discordUserId) {
+async function hasAcceptedToS(resolvedUserId, discordUserId) {
     if (discordUserId === FATHER_DISCORD_ID) return true;
-    return acceptedUsers.has(resolvedUserId) || acceptedUsers.has(discordUserId);
+    if (acceptedUsers.has(resolvedUserId) || acceptedUsers.has(discordUserId)) return true;
+
+    try {
+        const LinkedAccount = require('../models/LinkedAccount');
+        const linked = await LinkedAccount.findOne({ discordId: discordUserId });
+        if (linked && linked.whatsappId) {
+            if (acceptedUsers.has(linked.whatsappId) || acceptedUsers.has(linked.unifiedId)) {
+                acceptedUsers.add(resolvedUserId);
+                acceptedUsers.add(discordUserId);
+                return true;
+            }
+        }
+    } catch (err) {
+        console.error('[ToSStore] Failed to check linked WhatsApp ToS status:', err.message);
+    }
+
+    return false;
 }
 
 /**
@@ -59,6 +75,17 @@ async function acceptToS(resolvedUserId, discordUserId) {
             { $set: { tosVersion: TOS_VERSION } },
             { upsert: true }
         );
+
+        const LinkedAccount = require('../models/LinkedAccount');
+        const linked = await LinkedAccount.findOne({ discordId: discordUserId });
+        if (linked && linked.whatsappId) {
+            acceptedUsers.add(linked.whatsappId);
+            await PlayerWallet.updateOne(
+                { userId: linked.whatsappId },
+                { $set: { tosVersion: TOS_VERSION } },
+                { upsert: true }
+            );
+        }
     } catch (err) {
         console.error('[ToSStore] Failed to save acceptance:', err.message);
     }

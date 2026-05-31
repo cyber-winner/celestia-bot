@@ -76,7 +76,7 @@ module.exports = {
             // ─── ToS Gate: Check if user has accepted Terms of Service ───
             const tosAuthor = interaction.user;
             const tosResolvedId = await accountStore.resolveUserId(tosAuthor.id);
-            if (!tosStore.hasAcceptedToS(tosResolvedId, tosAuthor.id)) {
+            if (!(await tosStore.hasAcceptedToS(tosResolvedId, tosAuthor.id))) {
                 // Send ToS via DM with accept button
                 try {
                     const tosContainer = new ContainerBuilder()
