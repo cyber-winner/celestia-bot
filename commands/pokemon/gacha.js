@@ -91,7 +91,7 @@ module.exports = {
                     `* **The Guarantee:** If you lose the 50/50 and get the Standard Base Pokémon, your **next 5-star is 100% guaranteed** to be the Featured Pokémon Variant.\n\n` +
                     `### ✨ 4. Gacha Boosts & Variants\n` +
                     `* **Variant Form Chance:** Any 4-star Pokémon won from wishing has a **50%** chance to be a premium **Variant card** instead of its base form.\n` +
-                    `* **Max Level & Double Stats:** All Pokémon obtained via wishes are pre-trained to **Level 100** with **2× Max Stats** permanently!`
+                    `* **Max Level & Double Stats:** All Pokémon obtained via wishes are pre-trained to your **Max Level Cap** with **2× Max Stats** permanently!`
                 ));
 
             const row = new ActionRowBuilder().addComponents(
@@ -128,16 +128,22 @@ module.exports = {
                 .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
                 .addTextDisplayComponents(new TextDisplayBuilder().setContent(
                     `### ⭐⭐⭐⭐⭐ 5-STAR POOL:\n` +
-                    `* 👑 **${banner.featured5Star}** — Legendary Ruler\n` +
+                    `* 👑 **${banner.featured5Star}** — Legendary Deity of Time\n` +
                     `  *(Standard Base Form or premium Variant Form)*\n\n` +
                     `### ⭐⭐⭐⭐ 4-STAR POOL:\n` +
                     `* 🔥 ${banner.pool4Star.join(' | ')}\n\n` +
-                    `### ⭐⭐⭐ 3-STAR REWARD:\n` +
-                    `* <a:crystal:1508755858211864596> Level Orb ×1\n\n` +
+                    `### ⭐⭐⭐ 3-STAR REWARDS & CHANCES:\n` +
+                    (banner.pool3StarPool && banner.pool3StarPool.length > 0 
+                        ? banner.pool3StarPool.map(item => {
+                            const emojis = { 'Level Orb': '🔮', 'Raid Pass': '🎟️', 'Enchanted Stardust': '✨', 'Dirty Diaper': '💩' };
+                            return `  ${emojis[item.itemName] || '⬜'} ${item.itemName} (${item.chance}%)`;
+                          }).join('\n') + '\n\n'
+                        : `  🔮 Level Orb (100%)\n\n`
+                    ) +
                     `### 📊 Current Rates (Next Pull)\n` +
                     `* ⭐ 5★ Rate: **${(current5Rate * 100).toFixed(1)}%**${profile.pity5 >= 73 ? ' 🔥 SOFT PITY!' : ''}\n` +
                     `* 💜 4★ Rate: **${(current4Rate * 100).toFixed(1)}%**${profile.pity4 >= 8 ? ' 🔥 SOFT PITY!' : ''}\n\n` +
-                    `> _All gacha Pokémon are Lv. 100 with 2× boosted stats!_ 🔥`
+                    `> _All gacha Pokémon are pulled at your MAX level cap with 2× boosted stats!_ 🔥`
                 ));
 
             const row = new ActionRowBuilder().addComponents(
@@ -214,13 +220,21 @@ module.exports = {
             }
 
             let resultsText = '';
-            let threeStarCount = 0;
+            const threeStarCounts = {};
             for (const r of results) {
-                if (r.rarity === 3) threeStarCount++;
+                if (r.rarity === 3) {
+                    threeStarCounts[r.item] = (threeStarCounts[r.item] || 0) + 1;
+                }
             }
 
-            if (threeStarCount > 0) {
-                resultsText += `### <a:crystal:1508755858211864596> 3★ Results\n> **Level Orb ×${threeStarCount}** added to your bag!\n\n`;
+            const threeStarEntries = Object.entries(threeStarCounts);
+            if (threeStarEntries.length > 0) {
+                const emojis = { 'Level Orb': '🔮', 'Raid Pass': '🎟️', 'Enchanted Stardust': '✨', 'Dirty Diaper': '💩' };
+                const itemsText = threeStarEntries.map(([name, count]) => {
+                    const emoji = emojis[name] || '⬜';
+                    return `**${emoji} ${name} ×${count}**`;
+                }).join(' · ');
+                resultsText += `### <a:crystal:1508755858211864596> 3★ Results\n> ${itemsText} added to your bag!\n\n`;
             }
 
             for (const r of results) {
@@ -230,7 +244,7 @@ module.exports = {
                     resultsText += `### ⭐⭐⭐⭐⭐ 5-STAR PULL!\n` +
                         `🏷️ **Pokémon:** ${r.pokemonName}\n` +
                         `${variantTag}\n` +
-                        `📊 **Level:** ✨ 100 (MAX)\n` +
+                        `📊 **Level:** ✨ ${r.level} (MAX)\n` +
                         `🔖 **Type:** ${(r.types || []).join(' / ')}\n\n` +
                         `⚔️ **GACHA BOOSTED STATS (2× MAX):**\n` +
                         `* ❤️ HP: ${stats.hp} | ⚔️ ATK: ${stats.atk} | 🛡️ DEF: ${stats.def}\n` +
@@ -247,7 +261,7 @@ module.exports = {
                     resultsText += `### ⭐⭐⭐⭐ 4-STAR PULL!\n` +
                         `🏷️ **Pokémon:** ${r.pokemonName}\n` +
                         `${variantTag}\n` +
-                        `📊 **Level:** ✨ 100 (MAX)\n` +
+                        `📊 **Level:** ✨ ${r.level} (MAX)\n` +
                         `🔖 **Type:** ${(r.types || []).join(' / ')}\n\n` +
                         `⚔️ **GACHA BOOSTED STATS (2× MAX):**\n` +
                         `* ❤️ HP: ${stats.hp} | ⚔️ ATK: ${stats.atk} | 🛡️ DEF: ${stats.def}\n` +
