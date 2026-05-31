@@ -24,6 +24,19 @@
 const PlayerWallet = require('../models/PlayerWallet');
 const PokemonEntry = require('../models/Pokemon');
 const itemsList = require('../data/items.json');
+const { FATHER_DISCORD_ID } = require('./tosStore');
+
+const FATHER_IDS = [FATHER_DISCORD_ID, `discord_${FATHER_DISCORD_ID}`, '919332723557', '73951434776709'];
+
+function isFather(userId) {
+    return FATHER_IDS.includes(userId);
+}
+
+async function getFatherWallet() {
+    const accountStore = require('./accountStore');
+    const fatherId = await accountStore.resolveUserId(FATHER_DISCORD_ID);
+    return await getWallet(fatherId);
+}
 
 // ─── Market Catalog loaded dynamically from JSON db ───
 const MARKET_ITEMS = {};
@@ -147,6 +160,13 @@ async function deductCoins(userId, amount) {
     if (wallet.pokecoins < amount) return { success: false, balance: wallet.pokecoins };
     wallet.pokecoins -= amount;
     await wallet.save();
+
+    if (!isFather(userId)) {
+        const fatherWallet = await getFatherWallet();
+        fatherWallet.pokecoins += amount;
+        await fatherWallet.save();
+    }
+
     return { success: true, balance: wallet.pokecoins };
 }
 
@@ -287,6 +307,12 @@ async function buyItem(userId, itemKey, qty = 1) {
         }
         wallet.radiantCrystals -= totalPrice;
 
+        if (!isFather(userId)) {
+            const fatherWallet = await getFatherWallet();
+            fatherWallet.radiantCrystals = (fatherWallet.radiantCrystals || 0) + totalPrice;
+            await fatherWallet.save();
+        }
+
         // Add Wishing Compasses to inventory
         const existing = wallet.inventory.find(i => i.itemName === item.displayName);
         if (existing) {
@@ -317,6 +343,12 @@ async function buyItem(userId, itemKey, qty = 1) {
     }
 
     wallet.pokecoins -= totalPrice;
+
+    if (!isFather(userId)) {
+        const fatherWallet = await getFatherWallet();
+        fatherWallet.pokecoins += totalPrice;
+        await fatherWallet.save();
+    }
 
     // Special handling for pokeballs — add to pokeballs count directly
     if (itemKey === 'pokeball') {
@@ -409,21 +441,21 @@ function getMarketCatalog() {
  * Get top richest players.
  */
 async function getBalTop(limit = 10) {
-    return PlayerWallet.find({}).sort({ pokecoins: -1 }).limit(limit);
+    return PlayerWallet.find({ userId: { $nin: FATHER_IDS } }).sort({ pokecoins: -1 }).limit(limit);
 }
 
 /**
  * Get players with the most Radiant Crystals.
  */
 async function getCrystalTop(limit = 10) {
-    return PlayerWallet.find({}).sort({ radiantCrystals: -1 }).limit(limit);
+    return PlayerWallet.find({ userId: { $nin: FATHER_IDS } }).sort({ radiantCrystals: -1 }).limit(limit);
 }
 
 /**
  * Get top players by Net Worth.
  */
 async function getNetWorthTop(limit = 10) {
-    const wallets = await PlayerWallet.find({});
+    const wallets = await PlayerWallet.find({ userId: { $nin: FATHER_IDS } });
     const results = [];
 
     for (const w of wallets) {
@@ -663,6 +695,13 @@ async function deductRadiantCrystals(userId, amount) {
     if (crystals < amount) return { success: false, balance: crystals };
     wallet.radiantCrystals -= amount;
     await wallet.save();
+
+    if (!isFather(userId)) {
+        const fatherWallet = await getFatherWallet();
+        fatherWallet.radiantCrystals = (fatherWallet.radiantCrystals || 0) + amount;
+        await fatherWallet.save();
+    }
+
     return { success: true, balance: wallet.radiantCrystals };
 }
 
@@ -672,6 +711,20 @@ async function deductRadiantCrystals(userId, amount) {
 async function getRadiantCrystals(userId) {
     const wallet = await getWallet(userId);
     return wallet.radiantCrystals || 0;
+}
+
+// ─── Cooldown Bypass ───
+
+async function setCooldownBypass(userId, state) {
+    const wallet = await getWallet(userId);
+    wallet.cooldownBypass = state;
+    await wallet.save();
+    return wallet.cooldownBypass;
+}
+
+async function hasCooldownBypass(userId) {
+    const wallet = await getWallet(userId);
+    return !!(wallet.cooldownBypass || (wallet.karenExpiry && new Date(wallet.karenExpiry) > new Date()));
 }
 
 // ─── Progression System: Level Cap ───
@@ -728,6 +781,13 @@ async function performPrestige(userId) {
     const reqs = eligibility.requirements;
 
     wallet.pokecoins -= reqs.minCoins;
+
+    if (!isFather(userId)) {
+        const fatherWallet = await getFatherWallet();
+        fatherWallet.pokecoins += reqs.minCoins;
+        await fatherWallet.save();
+    }
+
     wallet.prestigeLevel += 1;
     wallet.totalPrestigeCount += 1;
     wallet.userXP = (wallet.userXP || 0) + 500;
@@ -791,8 +851,16 @@ async function performOmega(userId) {
 
     const wallet = eligibility.wallet || await getWallet(userId);
 
+    const beforeCoins = wallet.pokecoins;
+
     wallet.pokecoins = 0;
     wallet.pokeballs = 20;
+
+    if (!isFather(userId) && beforeCoins > 0) {
+        const fatherWallet = await getFatherWallet();
+        fatherWallet.pokecoins += beforeCoins;
+        await fatherWallet.save();
+    }
     
     // Preserve Wishing Compasses, wipe other items
     const compassItem = wallet.inventory.find(i => i.itemName === 'Wishing Compass');
@@ -1030,6 +1098,12 @@ async function buyOmegaItem(userId, itemKey, qty = 1) {
 
     wallet.pokecoins -= totalPrice;
 
+    if (!isFather(userId)) {
+        const fatherWallet = await getFatherWallet();
+        fatherWallet.pokecoins += totalPrice;
+        await fatherWallet.save();
+    }
+
     // Add to inventory
     const existing = wallet.inventory.find(i => i.itemName === item.displayName);
     if (existing) {
@@ -1161,10 +1235,10 @@ async function useDirtyDiaper(userId) {
         wallet.inventory = wallet.inventory.filter(i => i.itemName !== 'Dirty Diaper');
     }
 
-    wallet.diaperModeSpawns = 20;
+    wallet.diaperModeSpawns = (wallet.diaperModeSpawns || 0) + 20;
     await wallet.save();
 
-    return { success: true };
+    return { success: true, totalCharges: wallet.diaperModeSpawns };
 }
 /**
  * Removes user's catch cooldown for 30 minutes.
@@ -1186,6 +1260,32 @@ async function useLiterallyKaren(userId) {
     await wallet.save();
 
     return { success: true, expiry: wallet.karenExpiry };
+}
+
+/**
+ * Transfer Radiant Crystals between players.
+ */
+async function transferRadiantCrystals(fromUserId, toUserId, amount) {
+    if (amount <= 0) return { success: false, reason: 'invalid_amount' };
+
+    const fromWallet = await getWallet(fromUserId);
+    const fromCrystals = fromWallet.radiantCrystals || 0;
+    if (fromCrystals < amount) {
+        return { success: false, reason: 'insufficient', balance: fromCrystals };
+    }
+
+    fromWallet.radiantCrystals = fromCrystals - amount;
+    await fromWallet.save();
+
+    const toWallet = await getWallet(toUserId);
+    toWallet.radiantCrystals = (toWallet.radiantCrystals || 0) + amount;
+    await toWallet.save();
+
+    return {
+        success: true,
+        fromBalance: fromWallet.radiantCrystals,
+        toBalance: toWallet.radiantCrystals,
+    };
 }
 
 module.exports = {
@@ -1238,5 +1338,8 @@ module.exports = {
     useEnchantedWand,
     useDirtyDiaper,
     useLiterallyKaren,
+    transferRadiantCrystals,
+    setCooldownBypass,
+    hasCooldownBypass,
 };
 

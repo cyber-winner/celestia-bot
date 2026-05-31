@@ -25,6 +25,7 @@ const playerWalletSchema = new mongoose.Schema({
     userXP:        { type: Number, default: 0 },  // Tracks user experience points
     totalPrestigeCount: { type: Number, default: 0 }, // Lifetime prestige count
     totalOmegaCount:    { type: Number, default: 0 }, // Lifetime omega count
+    tosVersion:         { type: Number, default: 0 }, // Terms of Service version accepted
     createdAt:  { type: Date, default: Date.now },
 });
 

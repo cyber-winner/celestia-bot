@@ -7,6 +7,8 @@ const {
 const pokemonStore = require('../store/pokemonStore');
 const economyStore = require('../store/economyStore');
 const accountStore = require('../store/accountStore');
+const tosStore = require('../store/tosStore');
+const { TOS_TEXT, TOS_ACCEPTED_MSG, TOS_ALREADY_ACCEPTED_MSG } = require('../data/tos');
 const PokemonEntry = require('../models/Pokemon');
 const ActiveRaid = require('../models/ActiveRaid');
 const { COLORS, getTypeColor, getRankBadge, getRarityTag, errorContainer, successContainer } = require('../utils/componentBuilder');
@@ -69,6 +71,47 @@ module.exports = {
                 }
             } catch (err) {
                 logInteractionError(`Auto-Defer /${interaction.commandName}`, err);
+            }
+
+            // ─── ToS Gate: Check if user has accepted Terms of Service ───
+            const tosAuthor = interaction.user;
+            const tosResolvedId = await accountStore.resolveUserId(tosAuthor.id);
+            if (!tosStore.hasAcceptedToS(tosResolvedId, tosAuthor.id)) {
+                // Send ToS via DM with accept button
+                try {
+                    const tosContainer = new ContainerBuilder()
+                        .setAccentColor(COLORS.CELESTIA)
+                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 📜 Celestia — Terms of Service`))
+                        .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(TOS_TEXT));
+
+                    const tosRow = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('tos_accept')
+                            .setEmoji('✅')
+                            .setLabel('I Agree to the Terms of Service')
+                            .setStyle(ButtonStyle.Success),
+                    );
+
+                    await tosAuthor.send({ components: [tosContainer, tosRow], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+                } catch (e) {
+                    // DMs might be closed
+                }
+
+                const lockContainer = new ContainerBuilder()
+                    .setAccentColor(COLORS.WARNING)
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🔒 Account Locked`))
+                    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                        `You must accept Celestia's **Terms of Service** before using any commands!\n\n` +
+                        `📬 **Check your DMs** — the Terms of Service has been sent to you with an accept button.\n\n` +
+                        `> *If you can't receive DMs, enable them in your privacy settings and try again.*`
+                    ));
+
+                return interaction.reply({
+                    components: [lockContainer],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                }).catch(() => {});
             }
 
             try {
@@ -247,6 +290,124 @@ module.exports = {
                 const pornCmd = require('../commands/nsfw/porn');
                 if (customId.startsWith('porn_img:')) await pornCmd.handleImage(interaction, true).catch(console.error);
                 else await pornCmd.handleVideo(interaction, true).catch(console.error);
+                return;
+            }
+
+            // ─── Giveaway Enter Button ───
+            if (customId === 'giveaway_enter') {
+                try {
+                    if (!interaction.deferred && !interaction.replied) {
+                        await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+                    }
+                } catch (e) { return; }
+
+                const giveawayStore = require('../store/giveawayStore');
+                const guildId = interaction.guildId;
+                const author = interaction.user;
+
+                if (!guildId || !giveawayStore.hasActiveGiveaway(guildId)) {
+                    return interaction.reply({
+                        components: [errorContainer('No Active Giveaway', 'There is no active giveaway in this server right now.')],
+                        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    }).catch(() => {});
+                }
+
+                const resolvedUserId = await accountStore.resolveUserId(author.id);
+                const result = giveawayStore.enterParticipant(guildId, resolvedUserId, author.username);
+
+                if (!result.success) {
+                    if (result.reason === 'already_entered') {
+                        return interaction.reply({
+                            components: [errorContainer('Already Entered', `You have already entered this giveaway, **${author.username}**! 🎰`)],
+                            flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                        }).catch(() => {});
+                    }
+                    return interaction.reply({
+                        components: [errorContainer('Failed', `Could not enter giveaway: ${result.reason}`)],
+                        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                    }).catch(() => {});
+                }
+
+                const giveawaySection = new SectionBuilder();
+                giveawaySection.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent(
+                        `🎟️ **${author.username}** has entered the giveaway!\n\n` +
+                        `👥 **Total Participants:** ${result.count}\n\n` +
+                        `> *Good luck, trainer! The winner will be announced when the timer ends.* 🍀`
+                    )
+                );
+                giveawaySection.setThumbnailAccessory(new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 })));
+
+                const giveawayContainer = new ContainerBuilder()
+                    .setAccentColor(COLORS.SUCCESS)
+                    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ✅ Giveaway Entry Confirmed!`))
+                    .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                    .addSectionComponents(giveawaySection);
+
+                return interaction.reply({
+                    components: [giveawayContainer],
+                    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+                }).catch(() => {});
+            }
+
+            // ─── ToS Accept Button (from DM) ───
+            if (customId === 'tos_accept') {
+                try {
+                    if (!interaction.deferred && !interaction.replied) {
+                        await interaction.deferUpdate();
+                    }
+                } catch (e) { return; }
+
+                const tosAuthor = interaction.user;
+                const tosResolved = await accountStore.resolveUserId(tosAuthor.id);
+                const wasNew = await tosStore.acceptToS(tosResolved, tosAuthor.id);
+
+                if (wasNew) {
+                    const tosAcceptContainer = new ContainerBuilder()
+                        .setAccentColor(COLORS.SUCCESS)
+                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## ✅ Terms of Service Accepted!`))
+                        .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                        .addTextDisplayComponents(new TextDisplayBuilder().setContent(
+                            `👤 **Trainer:** ${tosAuthor.username}\n\n` +
+                            TOS_ACCEPTED_MSG
+                        ));
+
+                    // Disable the button on the original message
+                    try {
+                        const disabledRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('tos_accepted_disabled')
+                                .setEmoji('✅')
+                                .setLabel('Terms of Service Accepted!')
+                                .setStyle(ButtonStyle.Success)
+                                .setDisabled(true),
+                        );
+                        await interaction.message.edit({
+                            components: [interaction.message.components[0], disabledRow],
+                            flags: MessageFlags.IsComponentsV2,
+                        });
+                    } catch (e) { }
+
+                    return interaction.followUp({
+                        components: [tosAcceptContainer],
+                        flags: MessageFlags.IsComponentsV2,
+                    }).catch(() => {});
+                } else {
+                    return interaction.followUp({
+                        components: [successContainer('Already Accepted', TOS_ALREADY_ACCEPTED_MSG)],
+                        flags: MessageFlags.IsComponentsV2,
+                    }).catch(() => {});
+                }
+            }
+
+            // ─── Pokémon Turn-Based Duel ───
+            if (customId.startsWith('fight_')) {
+                try {
+                    const fightCmd = require('../commands/pokemon/fight');
+                    await fightCmd.handleButton(interaction, client);
+                } catch (err) {
+                    logInteractionError('Fight Button', err);
+                }
                 return;
             }
 

@@ -11,6 +11,9 @@ const PokemonEntry = require('../models/Pokemon');
 const PokemonListing = require('../models/PokemonListing');
 const POKEMON_LIST = require('../data/pokemon.json');
 const economyStore = require('./economyStore');
+const { FATHER_DISCORD_ID } = require('./tosStore');
+
+const FATHER_IDS = [FATHER_DISCORD_ID, `discord_${FATHER_DISCORD_ID}`, '919332723557', '73951434776709'];
 
 // ─── Name to Dex ID Map & Metadata Map ───
 const nameToIdMap = {};
@@ -263,7 +266,7 @@ async function attemptCatch(channelId, userId, guessedName, isButtonOrSlash = fa
     }
 
     const diaperActive = wallet && wallet.diaperModeSpawns > 0;
-    if (!diaperActive && spawn.name.toLowerCase() !== guessedName.toLowerCase()) {
+    if (!diaperActive && (!guessedName || spawn.name.toLowerCase() !== guessedName.toLowerCase())) {
         return { success: false, reason: 'wrong_name' };
     }
 
@@ -563,6 +566,7 @@ async function getTrainerLeaderboard() {
 
     for (const entry of entries) {
         const userId = entry.userId;
+        if (FATHER_IDS.includes(userId)) continue;
         if (!userStats[userId]) {
             userStats[userId] = {
                 userId,

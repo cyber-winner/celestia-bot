@@ -435,7 +435,7 @@ module.exports = {
         container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(
             `👤 **${author.username}** put on a **Dirty Diaper**!\n\n` +
-            `💩 **Diaper Mode** is active! You can bypass the spelling requirement for the next **20** successful catches!`
+            `💩 **Diaper Mode** is active! You can bypass the spelling requirement for the next **${result.totalCharges}** successful catches!`
         ));
 
         await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });

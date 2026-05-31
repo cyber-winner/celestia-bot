@@ -33,7 +33,13 @@ async function start() {
     require('./handlers/commandHandler')(client);
     require('./handlers/eventHandler')(client);
 
-    // 3. Login
+    // 3. Initialize stores that need DB access
+    const tosStore = require('./store/tosStore');
+    await tosStore.loadAll();
+
+    const giveawayStore = require('./store/giveawayStore');
+
+    // 4. Login
     client.login(process.env.TOKEN).catch(err => {
         if (err.message.includes('disallowed intents')) {
             console.error('\u001b[31m[ERROR] Disallowed Intents!\u001b[0m');
@@ -42,6 +48,11 @@ async function start() {
         } else {
             console.error('Login Error:', err);
         }
+    });
+
+    // 5. Resume active giveaways once the client is ready
+    client.once('ready', async () => {
+        await giveawayStore.init(client);
     });
 }
 

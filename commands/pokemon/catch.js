@@ -10,7 +10,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('catch')
         .setDescription('Catch a wild or summoned Pokémon')
-        .addStringOption(opt => opt.setName('name').setDescription('Name of the Pokémon').setRequired(true)),
+        .addStringOption(opt => opt.setName('name').setDescription('Name of the Pokémon').setRequired(false)),
     aliases: [],
 
     async execute(interaction, client, args) {
@@ -23,6 +23,12 @@ module.exports = {
         // ─── Case 1: Check for summoned spawn first ───
         const summonedSpawn = pokemonStore.getSummonedSpawn(channelId);
         if (summonedSpawn) {
+            if (!guessedName) {
+                return interaction.reply({
+                    components: [errorContainer('Invalid Guess', `👤 **${author.username}**: You must specify the name of the summoned Pokémon to catch!`)],
+                    flags: MessageFlags.IsComponentsV2,
+                });
+            }
             if (summonedSpawn.summonerId !== userId) {
                 return interaction.reply({
                     components: [errorContainer('Locked', `👤 **${author.username}**: Only the summoner can catch a summoned Pokémon!`)],
@@ -35,6 +41,18 @@ module.exports = {
         }
 
         // ─── Case 2: Normal wild spawn catch ───
+        if (!guessedName) {
+            const PlayerWallet = require('../../models/PlayerWallet');
+            const wallet = await PlayerWallet.findOne({ userId });
+            const diaperActive = wallet && wallet.diaperModeSpawns > 0;
+            if (!diaperActive) {
+                return interaction.reply({
+                    components: [errorContainer('Invalid Guess', `👤 **${author.username}**: You must specify the name of the Pokémon to catch!`)],
+                    flags: MessageFlags.IsComponentsV2,
+                });
+            }
+        }
+
         const result = await pokemonStore.attemptCatch(channelId, userId, guessedName, true);
 
         if (result.success) {

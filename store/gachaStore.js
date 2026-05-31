@@ -11,12 +11,12 @@
  *
  * ─── Variant Rolling ───
  *   On 4★/5★ Pokémon hit: 50% base form, 50% random variant card.
- *   All gacha Pokémon are Level 100 with 2× max stats.
+ *   All gacha Pokémon are level of user's max level cap with 2× max stats.
  *
  * ─── Reward Pools ───
- *   5-Star: Palkia
- *   4-Star: Eevee, Charizard, Flareon
- *   3-Star: Level Orb ×1 (inventory item)
+ *   5-Star: Dialga
+ *   4-Star: Venusaur, Kyurem, Umbreon
+ *   3-Star: Weighted Pool (Level Orb, Raid Pass, Enchanted Stardust, Dirty Diaper)
  */
 
 const GachaProfile = require('../models/GachaProfile');
@@ -193,9 +193,27 @@ async function executeSingleWish(profile) {
     }
 
     // ─── 3-Star (Default) ───
+    const pool = BANNER.pool3StarPool || [
+        { "itemName": "Level Orb", "chance": 50 },
+        { "itemName": "Raid Pass", "chance": 30 },
+        { "itemName": "Enchanted Stardust", "chance": 19 },
+        { "itemName": "Dirty Diaper", "chance": 1 }
+    ];
+
+    const roll3 = Math.random() * 100;
+    let item3 = 'Level Orb';
+    let cumulative = 0;
+    for (const reward of pool) {
+        cumulative += reward.chance;
+        if (roll3 < cumulative) {
+            item3 = reward.itemName;
+            break;
+        }
+    }
+
     return {
         rarity: 3,
-        item: BANNER.pool3StarItem,
+        item: item3,
         quantity: 1,
     };
 }
@@ -221,10 +239,11 @@ async function executeWishes(userId, wishCount, economyStore) {
         if (result.rarity === 5 || result.rarity === 4) {
             const pokemon = result.pokemon;
             if (pokemon) {
+                const levelCap = await economyStore.getLevelCapForUser(userId);
                 const entry = await PokemonEntry.create({
                     userId,
                     pokemonName: pokemon.name,
-                    level: 100,  // Gacha Pokémon are always max level
+                    level: levelCap,  // Gacha Pokémon are always max level cap of user
                     dexId: pokemon.id,
                 });
                 await economyStore.addUserXP(userId, 25);
@@ -233,6 +252,7 @@ async function executeWishes(userId, wishCount, economyStore) {
                 result.cardImage = pokemon.cardImage;
                 result.types = pokemon.types;
                 result.isVariant = pokemon.isVariant;
+                result.level = levelCap;
 
                 // Build the 2× max stats object
                 const bs = pokemon.baseStats || { hp: 50, atk: 50, def: 50, spAtk: 50, spDef: 50, speed: 50 };
@@ -248,7 +268,7 @@ async function executeWishes(userId, wishCount, economyStore) {
                 result.isMythical = pokemon.isMythical || false;
             }
         } else if (result.rarity === 3) {
-            // Award Level Orb to inventory
+            // Award Level Orb/Raid Pass/etc to inventory
             await economyStore.addInventoryItem(userId, result.item, result.quantity);
         }
 
@@ -288,7 +308,7 @@ function getBannerInfo() {
         featured5StarId: BANNER.featured5Star,
         pool4Star: pool4StarNames,
         pool4StarIds: [...BANNER.pool4Star],
-        pool3StarItem: BANNER.pool3StarItem,
+        pool3StarPool: BANNER.pool3StarPool || []
     };
 }
 

@@ -29,8 +29,14 @@ module.exports = {
                 .setDescription('Gift PokéCoins')
                 .addUserOption(opt => opt.setName('user').setDescription('Who to gift to').setRequired(true))
                 .addIntegerOption(opt => opt.setName('amount').setDescription('Amount of coins').setRequired(true).setMinValue(1))
+        )
+        .addSubcommand(sub => 
+            sub.setName('crystal')
+                .setDescription('Gift Radiant Crystals')
+                .addUserOption(opt => opt.setName('user').setDescription('Who to gift to').setRequired(true))
+                .addIntegerOption(opt => opt.setName('amount').setDescription('Amount of crystals').setRequired(true).setMinValue(1))
         ),
-    aliases: ['give', 'send', 'transfer', 'pokegift', 'itemgift', 'pokecoin'],
+    aliases: ['give', 'send', 'transfer', 'pokegift', 'itemgift', 'pokecoin', 'radiant'],
 
     async execute(interaction, client, args) {
         const isInteraction = typeof interaction.isChatInputCommand === 'function' && interaction.isChatInputCommand();
@@ -53,6 +59,8 @@ module.exports = {
                 amount = interaction.options.getInteger('quantity') || 1;
             } else if (subcommand === 'pokecoin') {
                 amount = interaction.options.getInteger('amount');
+            } else if (subcommand === 'crystal') {
+                amount = interaction.options.getInteger('amount');
             }
         } else {
             // Text command parsing
@@ -66,13 +74,14 @@ module.exports = {
             subcommand = args[0].toLowerCase();
             targetUser = interaction.mentions?.users?.first();
             
-            if (!['pokemon', 'item', 'pokecoin', 'coins', 'coin'].includes(subcommand) || !targetUser) {
+            if (!['pokemon', 'item', 'pokecoin', 'coins', 'coin', 'crystal', 'crystals', 'radiant', 'rc'].includes(subcommand) || !targetUser) {
                 return interaction.reply({
-                    components: [errorContainer('Invalid Command', `👤 **${author.username}**: Specify what to gift: \`pokemon\`, \`item\`, or \`pokecoin\` and tag a user.`)],
+                    components: [errorContainer('Invalid Command', `👤 **${author.username}**: Specify what to gift: \`pokemon\`, \`item\`, \`pokecoin\`, or \`crystal\` and tag a user.`)],
                     flags: MessageFlags.IsComponentsV2,
                 });
             }
             if (subcommand === 'coins' || subcommand === 'coin') subcommand = 'pokecoin';
+            if (subcommand === 'crystals' || subcommand === 'radiant' || subcommand === 'rc') subcommand = 'crystal';
 
             const cleanArgs = args.slice(1).filter(a => !a.startsWith('<@') && !a.endsWith('>'));
             
@@ -85,7 +94,7 @@ module.exports = {
                     cleanArgs.pop();
                 }
                 itemName = cleanArgs.join(' ').trim();
-            } else if (subcommand === 'pokecoin') {
+            } else if (subcommand === 'pokecoin' || subcommand === 'crystal') {
                 const num = cleanArgs.find(a => !isNaN(a) && a.trim() !== '');
                 if (num) amount = parseInt(num);
             }
@@ -199,6 +208,36 @@ module.exports = {
                 .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
                 .addSectionComponents(section)
                 .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+
+            return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+        }
+
+        if (subcommand === 'crystal') {
+            if (!amount || amount <= 0) return interaction.reply({ components: [errorContainer('Missing Amount', `👤 **${author.username}**: Specify a valid crystal amount to gift.`)], flags: MessageFlags.IsComponentsV2 });
+
+            const result = await economyStore.transferRadiantCrystals(senderId, targetId, amount);
+            if (!result.success) {
+                const msg = result.reason === 'insufficient' ? `Not enough Radiant Crystals! You have **${result.balance.toLocaleString()}**.` : 'Transfer failed.';
+                return interaction.reply({ components: [errorContainer('Transfer Failed', `👤 **${author.username}**: ${msg}`)], flags: MessageFlags.IsComponentsV2 });
+            }
+
+            const section = new SectionBuilder();
+            section.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `👤 **From:** ${author.username} (${result.fromBalance.toLocaleString()} remaining)\n` +
+                    `👤 **To:** ${targetUser.username}\n\n` +
+                    `<:Crystal:1508755711348445214> **${amount.toLocaleString()} Radiant Crystals**\n`
+                )
+            );
+            section.setThumbnailAccessory(new ThumbnailBuilder().setURL(author.displayAvatarURL({ size: 128 })));
+
+            const container = new ContainerBuilder()
+                .setAccentColor(COLORS.CRYSTAL)
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 💎 Crystals Transferred!`))
+                .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                .addSectionComponents(section)
+                .addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true))
+                .addTextDisplayComponents(new TextDisplayBuilder().setContent(`> *Sharing is caring, trainer!* ✨`));
 
             return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
         }
